@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { signAuthToken } from "@/lib/jwt";
+import { syncAppUserFromWebSocialLogin } from "@/lib/appBackendAuth";
 import User from "@/models/User";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
@@ -105,6 +106,14 @@ export async function GET(request: Request) {
       );
     }
 
+    const appUser = await syncAppUserFromWebSocialLogin({
+      provider: "google",
+      providerId: googleUser.sub,
+      email: googleUser.email || "",
+      name: googleUser.name || "",
+      avatar: googleUser.picture || "",
+    });
+
     await connectDB();
 
     let user = await User.findOne({
@@ -113,31 +122,44 @@ export async function GET(request: Request) {
     });
 
     const isNewUser = !user;
+    const appCompleted = Boolean(appUser.onboardingCompleted);
 
     if (!user) {
       user = await User.create({
         provider: "google",
         providerId: googleUser.sub,
-        email: googleUser.email || "",
+        appUserId: appUser.id,
+        appOnboardingCompleted: appCompleted,
+        email: googleUser.email || appUser.email || "",
         emailVerified: Boolean(googleUser.email_verified),
-        name: googleUser.name || "",
-        avatar: googleUser.picture || "",
-        nickname: "",
+        name: googleUser.name || appUser.name || "",
+        avatar: googleUser.picture || appUser.avatar || "",
+        nickname: appUser.username || "",
         role: "user",
         status: "active",
-        isProfileCompleted: false,
-        agreedToTerms: false,
-        agreedToPrivacy: false,
+        isProfileCompleted: appCompleted,
+        agreedToTerms: appCompleted,
+        agreedToPrivacy: appCompleted,
         agreedToMarketing: false,
+        country: appUser.countryCode || appUser.country || "",
+        language: appUser.language || "ko",
         lastLoginAt: new Date(),
       });
     } else {
-      user.email = googleUser.email || user.email;
+      user.appUserId = appUser.id;
+      user.appOnboardingCompleted = appCompleted;
+      user.email = googleUser.email || appUser.email || user.email;
       user.emailVerified = Boolean(
         googleUser.email_verified || user.emailVerified
       );
-      user.name = googleUser.name || user.name;
-      user.avatar = googleUser.picture || user.avatar;
+      user.name = googleUser.name || appUser.name || user.name;
+      user.avatar = googleUser.picture || appUser.avatar || user.avatar;
+      user.nickname = user.nickname || appUser.username || "";
+      user.country = user.country || appUser.countryCode || appUser.country || "";
+      user.language = user.language || appUser.language || "ko";
+      user.isProfileCompleted = Boolean(user.isProfileCompleted || appCompleted);
+      user.agreedToTerms = Boolean(user.agreedToTerms || appCompleted);
+      user.agreedToPrivacy = Boolean(user.agreedToPrivacy || appCompleted);
       user.lastLoginAt = new Date();
 
       await user.save();

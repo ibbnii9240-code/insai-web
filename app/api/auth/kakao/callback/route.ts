@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { signAuthToken } from "@/lib/jwt";
+import { syncAppUserFromWebSocialLogin } from "@/lib/appBackendAuth";
 import User from "@/models/User";
 
 const KAKAO_CLIENT_ID = process.env.KAKAO_CLIENT_ID as string;
@@ -127,6 +128,7 @@ export async function GET(request: Request) {
     const kakaoProfile = kakaoAccount?.profile;
     const properties = kakaoUser.properties;
 
+    const providerId = String(kakaoUser.id);
     const email = kakaoAccount?.email || "";
     const emailVerified = Boolean(kakaoAccount?.is_email_verified);
     const name =
@@ -141,37 +143,58 @@ export async function GET(request: Request) {
       properties?.thumbnail_image ||
       "";
 
+    const appUser = await syncAppUserFromWebSocialLogin({
+      provider: "kakao",
+      providerId,
+      email,
+      name,
+      avatar,
+    });
+
     await connectDB();
 
     let user = await User.findOne({
       provider: "kakao",
-      providerId: String(kakaoUser.id),
+      providerId,
     });
 
     const isNewUser = !user;
+    const appCompleted = Boolean(appUser.onboardingCompleted);
 
     if (!user) {
       user = await User.create({
         provider: "kakao",
-        providerId: String(kakaoUser.id),
-        email,
+        providerId,
+        appUserId: appUser.id,
+        appOnboardingCompleted: appCompleted,
+        email: email || appUser.email || "",
         emailVerified,
-        name,
-        avatar,
-        nickname: "",
+        name: name || appUser.name || "",
+        avatar: avatar || appUser.avatar || "",
+        nickname: appUser.username || "",
         role: "user",
         status: "active",
-        isProfileCompleted: false,
-        agreedToTerms: false,
-        agreedToPrivacy: false,
+        isProfileCompleted: appCompleted,
+        agreedToTerms: appCompleted,
+        agreedToPrivacy: appCompleted,
         agreedToMarketing: false,
+        country: appUser.countryCode || appUser.country || "",
+        language: appUser.language || "ko",
         lastLoginAt: new Date(),
       });
     } else {
-      user.email = email || user.email;
+      user.appUserId = appUser.id;
+      user.appOnboardingCompleted = appCompleted;
+      user.email = email || appUser.email || user.email;
       user.emailVerified = Boolean(emailVerified || user.emailVerified);
-      user.name = name || user.name;
-      user.avatar = avatar || user.avatar;
+      user.name = name || appUser.name || user.name;
+      user.avatar = avatar || appUser.avatar || user.avatar;
+      user.nickname = user.nickname || appUser.username || "";
+      user.country = user.country || appUser.countryCode || appUser.country || "";
+      user.language = user.language || appUser.language || "ko";
+      user.isProfileCompleted = Boolean(user.isProfileCompleted || appCompleted);
+      user.agreedToTerms = Boolean(user.agreedToTerms || appCompleted);
+      user.agreedToPrivacy = Boolean(user.agreedToPrivacy || appCompleted);
       user.lastLoginAt = new Date();
 
       await user.save();

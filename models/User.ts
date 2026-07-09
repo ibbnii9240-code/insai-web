@@ -10,6 +10,10 @@ export type UserDocument = {
   provider: AuthProvider;
   providerId: string;
 
+  // 앱 백엔드 PostgreSQL/Prisma User와 연결되는 실제 insai 앱 유저 ID
+  appUserId?: string;
+  appOnboardingCompleted?: boolean;
+
   email?: string;
   emailVerified?: boolean;
 
@@ -50,6 +54,17 @@ const UserSchema = new Schema<UserDocument>(
       type: String,
       required: true,
       index: true,
+    },
+
+    appUserId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    appOnboardingCompleted: {
+      type: Boolean,
+      default: false,
     },
 
     email: {
@@ -162,6 +177,13 @@ UserSchema.index(
 UserSchema.index(
   {
     email: 1,
+    provider: 1,
+  }
+);
+
+UserSchema.index(
+  {
+    appUserId: 1,
     provider: 1,
   }
 );

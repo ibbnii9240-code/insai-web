@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { signAuthToken } from "@/lib/jwt";
+import { syncAppUserFromWebSocialLogin } from "@/lib/appBackendAuth";
 import User from "@/models/User";
 
 const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID as string;
@@ -63,9 +64,6 @@ function getBaseUrl(request: Request) {
   return `${url.protocol}//${url.host}`;
 }
 
-// Apple이 form_post 방식으로 콜백을 보내면 POST 요청이 들어옵니다.
-// POST 요청 뒤에 페이지로 이동할 때 307/308을 쓰면 POST가 유지되어 /auth/callback에서 405가 납니다.
-// 그래서 모든 화면 이동 리다이렉트는 303으로 보냅니다.
 function redirectTo(url: string | URL) {
   return NextResponse.redirect(url, 303);
 }
@@ -273,6 +271,14 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
       applePayload.email_verified === "true";
     const name = getAppleDisplayName(userParam);
 
+    const appUser = await syncAppUserFromWebSocialLogin({
+      provider: "apple",
+      providerId: applePayload.sub,
+      email,
+      name,
+      avatar: "",
+    });
+
     await connectDB();
 
     let user = await User.findOne({
@@ -281,28 +287,42 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
     });
 
     const isNewUser = !user;
+    const appCompleted = Boolean(appUser.onboardingCompleted);
 
     if (!user) {
       user = await User.create({
         provider: "apple",
         providerId: applePayload.sub,
-        email,
+        appUserId: appUser.id,
+        appOnboardingCompleted: appCompleted,
+        email: email || appUser.email || "",
         emailVerified,
-        name,
-        avatar: "",
-        nickname: "",
+        name: name || appUser.name || "",
+        avatar: appUser.avatar || "",
+        nickname: appUser.username || "",
         role: "user",
         status: "active",
-        isProfileCompleted: false,
-        agreedToTerms: false,
-        agreedToPrivacy: false,
+        isProfileCompleted: appCompleted,
+        agreedToTerms: appCompleted,
+        agreedToPrivacy: appCompleted,
         agreedToMarketing: false,
+        country: appUser.countryCode || appUser.country || "",
+        language: appUser.language || "ko",
         lastLoginAt: new Date(),
       });
     } else {
-      user.email = email || user.email;
+      user.appUserId = appUser.id;
+      user.appOnboardingCompleted = appCompleted;
+      user.email = email || appUser.email || user.email;
       user.emailVerified = Boolean(emailVerified || user.emailVerified);
-      user.name = name || user.name;
+      user.name = name || appUser.name || user.name;
+      user.avatar = appUser.avatar || user.avatar;
+      user.nickname = user.nickname || appUser.username || "";
+      user.country = user.country || appUser.countryCode || appUser.country || "";
+      user.language = user.language || appUser.language || "ko";
+      user.isProfileCompleted = Boolean(user.isProfileCompleted || appCompleted);
+      user.agreedToTerms = Boolean(user.agreedToTerms || appCompleted);
+      user.agreedToPrivacy = Boolean(user.agreedToPrivacy || appCompleted);
       user.lastLoginAt = new Date();
 
       await user.save();
