@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   description: "insai Official Website",
   verification: {
     google: "EgQWsOhapRd63iLXbWcKg6AQcdDFJmQf0iwaYaJETc8",
+    other: {
+      "naver-site-verification": "ca122d86428a7a6e9221a37c2fee73252c3c43f9",
+    },
   },
 };
 
