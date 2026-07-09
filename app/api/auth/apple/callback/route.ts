@@ -11,12 +11,23 @@ const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY as string;
 
 const APPLE_REDIRECT_URI =
   process.env.APPLE_REDIRECT_URI ??
-  "http://localhost:3000/api/auth/apple/callback";
+  "https://insai-web-ii3h.vercel.app/api/auth/apple/callback";
 
-if (!APPLE_CLIENT_ID) throw new Error("APPLE_CLIENT_ID is not defined in .env.local");
-if (!APPLE_TEAM_ID) throw new Error("APPLE_TEAM_ID is not defined in .env.local");
-if (!APPLE_KEY_ID) throw new Error("APPLE_KEY_ID is not defined in .env.local");
-if (!APPLE_PRIVATE_KEY) throw new Error("APPLE_PRIVATE_KEY is not defined in .env.local");
+if (!APPLE_CLIENT_ID) {
+  throw new Error("APPLE_CLIENT_ID is not defined in environment variables");
+}
+
+if (!APPLE_TEAM_ID) {
+  throw new Error("APPLE_TEAM_ID is not defined in environment variables");
+}
+
+if (!APPLE_KEY_ID) {
+  throw new Error("APPLE_KEY_ID is not defined in environment variables");
+}
+
+if (!APPLE_PRIVATE_KEY) {
+  throw new Error("APPLE_PRIVATE_KEY is not defined in environment variables");
+}
 
 type AppleTokenResponse = {
   access_token?: string;
@@ -29,9 +40,14 @@ type AppleTokenResponse = {
 };
 
 type AppleIdTokenPayload = {
+  iss?: string;
+  aud?: string;
+  exp?: number;
+  iat?: number;
   sub?: string;
   email?: string;
   email_verified?: string | boolean;
+  is_private_email?: string | boolean;
 };
 
 type ApplePostedUser = {
@@ -45,6 +61,13 @@ type ApplePostedUser = {
 function getBaseUrl(request: Request) {
   const url = new URL(request.url);
   return `${url.protocol}//${url.host}`;
+}
+
+// Apple이 form_post 방식으로 콜백을 보내면 POST 요청이 들어옵니다.
+// POST 요청 뒤에 페이지로 이동할 때 307/308을 쓰면 POST가 유지되어 /auth/callback에서 405가 납니다.
+// 그래서 모든 화면 이동 리다이렉트는 303으로 보냅니다.
+function redirectTo(url: string | URL) {
+  return NextResponse.redirect(url, 303);
 }
 
 function base64Url(input: Buffer | string) {
@@ -63,7 +86,9 @@ function readDerLength(buffer: Buffer, offset: number) {
   let length = buffer[offset];
   offset += 1;
 
-  if (length < 0x80) return { length, offset };
+  if (length < 0x80) {
+    return { length, offset };
+  }
 
   const bytes = length & 0x7f;
   length = 0;
@@ -78,13 +103,17 @@ function readDerLength(buffer: Buffer, offset: number) {
 function derToJose(signature: Buffer) {
   let offset = 0;
 
-  if (signature[offset] !== 0x30) throw new Error("Invalid ECDSA signature format");
+  if (signature[offset] !== 0x30) {
+    throw new Error("Invalid ECDSA signature format");
+  }
 
   offset += 1;
   const sequence = readDerLength(signature, offset);
   offset = sequence.offset;
 
-  if (signature[offset] !== 0x02) throw new Error("Invalid ECDSA signature format");
+  if (signature[offset] !== 0x02) {
+    throw new Error("Invalid ECDSA signature format");
+  }
 
   offset += 1;
   const rLength = readDerLength(signature, offset);
@@ -92,7 +121,9 @@ function derToJose(signature: Buffer) {
   let r = signature.slice(offset, offset + rLength.length);
   offset += rLength.length;
 
-  if (signature[offset] !== 0x02) throw new Error("Invalid ECDSA signature format");
+  if (signature[offset] !== 0x02) {
+    throw new Error("Invalid ECDSA signature format");
+  }
 
   offset += 1;
   const sLength = readDerLength(signature, offset);
@@ -101,8 +132,14 @@ function derToJose(signature: Buffer) {
 
   if (r.length > 32) r = r.slice(r.length - 32);
   if (s.length > 32) s = s.slice(s.length - 32);
-  if (r.length < 32) r = Buffer.concat([Buffer.alloc(32 - r.length), r]);
-  if (s.length < 32) s = Buffer.concat([Buffer.alloc(32 - s.length), s]);
+
+  if (r.length < 32) {
+    r = Buffer.concat([Buffer.alloc(32 - r.length), r]);
+  }
+
+  if (s.length < 32) {
+    s = Buffer.concat([Buffer.alloc(32 - s.length), s]);
+  }
 
   return Buffer.concat([r, s]);
 }
@@ -137,12 +174,17 @@ function createAppleClientSecret() {
     dsaEncoding: "der",
   });
 
-  return `${signingInput}.${base64Url(derToJose(derSignature))}`;
+  const joseSignature = derToJose(derSignature);
+
+  return `${signingInput}.${base64Url(joseSignature)}`;
 }
 
 function decodeJwtPayload<T>(jwt: string): T {
   const payload = jwt.split(".")[1];
-  if (!payload) throw new Error("Invalid JWT payload");
+
+  if (!payload) {
+    throw new Error("Invalid JWT payload");
+  }
 
   const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(
@@ -160,6 +202,7 @@ function getAppleDisplayName(userParam: string | null) {
     const appleUser = JSON.parse(userParam) as ApplePostedUser;
     const firstName = appleUser.name?.firstName ?? "";
     const lastName = appleUser.name?.lastName ?? "";
+
     return `${lastName}${firstName}`.trim() || `${firstName} ${lastName}`.trim();
   } catch {
     return "";
@@ -175,12 +218,18 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
     const userParam = params.get("user");
 
     if (error) {
-      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent(error)}`);
+      return redirectTo(
+        `${baseUrl}/login?error=${encodeURIComponent(error)}`
+      );
     }
 
     if (!code) {
-      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent("no_code")}`);
+      return redirectTo(
+        `${baseUrl}/login?error=${encodeURIComponent("no_code")}`
+      );
     }
+
+    const clientSecret = createAppleClientSecret();
 
     const tokenResponse = await fetch("https://appleid.apple.com/auth/token", {
       method: "POST",
@@ -189,7 +238,7 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
       },
       body: new URLSearchParams({
         client_id: APPLE_CLIENT_ID,
-        client_secret: createAppleClientSecret(),
+        client_secret: clientSecret,
         code,
         grant_type: "authorization_code",
         redirect_uri: APPLE_REDIRECT_URI,
@@ -200,23 +249,28 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
 
     if (!tokenResponse.ok || !tokenData.id_token) {
       console.error("Apple token error:", tokenData);
-      return NextResponse.redirect(
+
+      return redirectTo(
         `${baseUrl}/login?error=${encodeURIComponent("apple_token_failed")}`
       );
     }
 
-    const applePayload = decodeJwtPayload<AppleIdTokenPayload>(tokenData.id_token);
+    const applePayload = decodeJwtPayload<AppleIdTokenPayload>(
+      tokenData.id_token
+    );
 
     if (!applePayload.sub) {
       console.error("Apple id token missing sub:", applePayload);
-      return NextResponse.redirect(
+
+      return redirectTo(
         `${baseUrl}/login?error=${encodeURIComponent("apple_user_failed")}`
       );
     }
 
     const email = applePayload.email || "";
     const emailVerified =
-      applePayload.email_verified === true || applePayload.email_verified === "true";
+      applePayload.email_verified === true ||
+      applePayload.email_verified === "true";
     const name = getAppleDisplayName(userParam);
 
     await connectDB();
@@ -250,15 +304,20 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
       user.emailVerified = Boolean(emailVerified || user.emailVerified);
       user.name = name || user.name;
       user.lastLoginAt = new Date();
+
       await user.save();
     }
 
     if (user.status === "suspended") {
-      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent("suspended")}`);
+      return redirectTo(
+        `${baseUrl}/login?error=${encodeURIComponent("suspended")}`
+      );
     }
 
     if (user.status === "deleted") {
-      return NextResponse.redirect(`${baseUrl}/login?error=${encodeURIComponent("deleted")}`);
+      return redirectTo(
+        `${baseUrl}/login?error=${encodeURIComponent("deleted")}`
+      );
     }
 
     const token = signAuthToken({
@@ -275,10 +334,11 @@ async function handleAppleCallback(request: Request, params: URLSearchParams) {
     redirectUrl.searchParams.set("next", redirectPath);
     redirectUrl.searchParams.set("new", isNewUser ? "1" : "0");
 
-    return NextResponse.redirect(redirectUrl);
+    return redirectTo(redirectUrl);
   } catch (error) {
     console.error("Apple callback error:", error);
-    return NextResponse.redirect(
+
+    return redirectTo(
       `${baseUrl}/login?error=${encodeURIComponent("apple_callback_failed")}`
     );
   }
@@ -294,7 +354,9 @@ export async function POST(request: Request) {
   const params = new URLSearchParams();
 
   for (const [key, value] of formData.entries()) {
-    if (typeof value === "string") params.set(key, value);
+    if (typeof value === "string") {
+      params.set(key, value);
+    }
   }
 
   return handleAppleCallback(request, params);
