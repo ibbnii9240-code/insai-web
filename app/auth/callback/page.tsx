@@ -3,13 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Home, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const TOKEN_KEY = "insai_auth_token";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshMe } = useAuth();
@@ -41,6 +41,10 @@ export default function AuthCallbackPage() {
     completeLogin();
   }, [router, searchParams, refreshMe]);
 
+  return <AuthCallbackView message={message} />;
+}
+
+function AuthCallbackView({ message }: { message: string }) {
   return (
     <main className="flex min-h-screen flex-col bg-[#F8FBFF] text-slate-900">
       <header className="border-b border-slate-100 bg-white/80 backdrop-blur-xl">
@@ -71,5 +75,13 @@ export default function AuthCallbackPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<AuthCallbackView message="로그인 정보를 확인하는 중입니다." />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
