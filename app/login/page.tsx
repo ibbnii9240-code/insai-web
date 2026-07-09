@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import {
   Apple,
   Globe,
@@ -37,10 +38,14 @@ function getErrorMessage(error: string | null) {
   return "로그인 처리 중 오류가 발생했습니다.";
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const searchParams = useSearchParams();
   const errorMessage = getErrorMessage(searchParams.get("error"));
 
+  return <LoginView errorMessage={errorMessage} />;
+}
+
+function LoginView({ errorMessage = "" }: { errorMessage?: string }) {
   return (
     <main className="min-h-screen bg-[#F8FBFF] text-slate-900">
       <header className="border-b border-slate-100 bg-white/80 backdrop-blur-xl">
@@ -162,5 +167,13 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginView />}>
+      <LoginContent />
+    </Suspense>
   );
 }
