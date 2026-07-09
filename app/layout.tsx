@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "insai",
   description: "insai Official Website",
+  verification: {
+    google: "EgQWsOhapRd63iLXbWcKg6AQcdDFJmQf0iwaYaJETc8",
+  },
 };
 
 export default function RootLayout({
