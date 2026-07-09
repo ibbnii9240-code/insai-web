@@ -23,6 +23,10 @@ function getErrorMessage(error: string | null) {
     return "탈퇴 처리된 계정입니다.";
   }
 
+  if (error === "no_code") {
+    return "로그인 인증 코드가 없습니다. 다시 시도해주세요.";
+  }
+
   if (error === "google_token_failed") {
     return "Google 인증 토큰을 가져오지 못했습니다.";
   }
@@ -33,6 +37,18 @@ function getErrorMessage(error: string | null) {
 
   if (error === "google_callback_failed") {
     return "Google 로그인 처리 중 오류가 발생했습니다.";
+  }
+
+  if (error === "kakao_token_failed") {
+    return "Kakao 인증 토큰을 가져오지 못했습니다.";
+  }
+
+  if (error === "kakao_user_failed") {
+    return "Kakao 사용자 정보를 가져오지 못했습니다.";
+  }
+
+  if (error === "kakao_callback_failed") {
+    return "Kakao 로그인 처리 중 오류가 발생했습니다.";
   }
 
   return "로그인 처리 중 오류가 발생했습니다.";
@@ -141,14 +157,13 @@ function LoginView({ errorMessage = "" }: { errorMessage?: string }) {
               Google로 계속하기
             </Link>
 
-            <button
-              type="button"
-              onClick={() => alert("Kakao 로그인은 다음 단계에서 연결할 예정입니다.")}
+            <Link
+              href="/api/auth/kakao/login"
               className="flex items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-6 py-4 font-black text-[#191919] shadow-sm transition hover:brightness-95"
             >
               <MessageCircle className="h-5 w-5" />
               Kakao로 계속하기
-            </button>
+            </Link>
 
             <button
               type="button"
@@ -161,7 +176,7 @@ function LoginView({ errorMessage = "" }: { errorMessage?: string }) {
           </div>
 
           <p className="mt-6 text-center text-xs leading-6 text-slate-400">
-            Google 로그인은 실제 OAuth로 연결되어 있습니다. Kakao와 Apple은
+            Google과 Kakao 로그인은 OAuth로 연결되어 있습니다. Apple 로그인은
             다음 단계에서 연결합니다.
           </p>
         </div>
