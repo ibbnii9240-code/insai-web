@@ -15,41 +15,21 @@ import {
 function getErrorMessage(error: string | null) {
   if (!error) return "";
 
-  if (error === "suspended") {
-    return "정지된 계정입니다. 고객센터로 문의해주세요.";
-  }
+  if (error === "suspended") return "정지된 계정입니다. 고객센터로 문의해주세요.";
+  if (error === "deleted") return "탈퇴 처리된 계정입니다.";
+  if (error === "no_code") return "로그인 인증 코드가 없습니다. 다시 시도해주세요.";
 
-  if (error === "deleted") {
-    return "탈퇴 처리된 계정입니다.";
-  }
+  if (error === "google_token_failed") return "Google 인증 토큰을 가져오지 못했습니다.";
+  if (error === "google_user_failed") return "Google 사용자 정보를 가져오지 못했습니다.";
+  if (error === "google_callback_failed") return "Google 로그인 처리 중 오류가 발생했습니다.";
 
-  if (error === "no_code") {
-    return "로그인 인증 코드가 없습니다. 다시 시도해주세요.";
-  }
+  if (error === "kakao_token_failed") return "Kakao 인증 토큰을 가져오지 못했습니다.";
+  if (error === "kakao_user_failed") return "Kakao 사용자 정보를 가져오지 못했습니다.";
+  if (error === "kakao_callback_failed") return "Kakao 로그인 처리 중 오류가 발생했습니다.";
 
-  if (error === "google_token_failed") {
-    return "Google 인증 토큰을 가져오지 못했습니다.";
-  }
-
-  if (error === "google_user_failed") {
-    return "Google 사용자 정보를 가져오지 못했습니다.";
-  }
-
-  if (error === "google_callback_failed") {
-    return "Google 로그인 처리 중 오류가 발생했습니다.";
-  }
-
-  if (error === "kakao_token_failed") {
-    return "Kakao 인증 토큰을 가져오지 못했습니다.";
-  }
-
-  if (error === "kakao_user_failed") {
-    return "Kakao 사용자 정보를 가져오지 못했습니다.";
-  }
-
-  if (error === "kakao_callback_failed") {
-    return "Kakao 로그인 처리 중 오류가 발생했습니다.";
-  }
+  if (error === "apple_token_failed") return "Apple 인증 토큰을 가져오지 못했습니다.";
+  if (error === "apple_user_failed") return "Apple 사용자 정보를 가져오지 못했습니다.";
+  if (error === "apple_callback_failed") return "Apple 로그인 처리 중 오류가 발생했습니다.";
 
   return "로그인 처리 중 오류가 발생했습니다.";
 }
@@ -57,7 +37,6 @@ function getErrorMessage(error: string | null) {
 function LoginContent() {
   const searchParams = useSearchParams();
   const errorMessage = getErrorMessage(searchParams.get("error"));
-
   return <LoginView errorMessage={errorMessage} />;
 }
 
@@ -96,34 +75,16 @@ function LoginView({ errorMessage = "" }: { errorMessage?: string }) {
 
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             {[
-              {
-                icon: ShieldCheck,
-                title: "안전한 로그인",
-                desc: "비밀번호 없이 소셜 계정 기반",
-              },
-              {
-                icon: MessageCircle,
-                title: "문의내역 연동",
-                desc: "답변과 상태를 한 곳에서 확인",
-              },
-              {
-                icon: Apple,
-                title: "앱/웹 통합",
-                desc: "insai 앱과 같은 계정 사용",
-              },
+              { icon: ShieldCheck, title: "안전한 로그인", desc: "비밀번호 없이 소셜 계정 기반" },
+              { icon: MessageCircle, title: "문의내역 연동", desc: "답변과 상태를 한 곳에서 확인" },
+              { icon: Apple, title: "앱/웹 통합", desc: "insai 앱과 같은 계정 사용" },
             ].map((item) => {
               const Icon = item.icon;
-
               return (
-                <div
-                  key={item.title}
-                  className="rounded-3xl bg-white p-6 shadow-lg shadow-sky-100"
-                >
+                <div key={item.title} className="rounded-3xl bg-white p-6 shadow-lg shadow-sky-100">
                   <Icon className="h-7 w-7 text-violet-500" />
                   <h3 className="mt-4 font-black">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {item.desc}
-                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">{item.desc}</p>
                 </div>
               );
             })}
@@ -165,19 +126,17 @@ function LoginView({ errorMessage = "" }: { errorMessage?: string }) {
               Kakao로 계속하기
             </Link>
 
-            <button
-              type="button"
-              onClick={() => alert("Apple 로그인은 다음 단계에서 연결할 예정입니다.")}
+            <Link
+              href="/api/auth/apple/login"
               className="flex items-center justify-center gap-3 rounded-2xl bg-slate-950 px-6 py-4 font-black text-white shadow-sm transition hover:bg-slate-800"
             >
               <Apple className="h-5 w-5" />
               Apple로 계속하기
-            </button>
+            </Link>
           </div>
 
           <p className="mt-6 text-center text-xs leading-6 text-slate-400">
-            Google과 Kakao 로그인은 OAuth로 연결되어 있습니다. Apple 로그인은
-            다음 단계에서 연결합니다.
+            Google, Kakao, Apple 계정으로 로그인할 수 있습니다.
           </p>
         </div>
       </section>
