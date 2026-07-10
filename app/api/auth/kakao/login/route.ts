@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server";
 
-const KAKAO_CLIENT_ID = process.env.KAKAO_CLIENT_ID as string;
-
-const KAKAO_REDIRECT_URI =
-  process.env.KAKAO_REDIRECT_URI ??
-  "http://localhost:3000/api/auth/kakao/callback";
-
-if (!KAKAO_CLIENT_ID) {
-  throw new Error("KAKAO_CLIENT_ID is not defined in .env.local");
-}
-
 export async function GET() {
+  const kakaoClientId = process.env.KAKAO_CLIENT_ID;
+  const kakaoRedirectUri = process.env.KAKAO_REDIRECT_URI;
+
+  if (!kakaoClientId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "KAKAO_CLIENT_ID 환경변수가 설정되지 않았습니다.",
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!kakaoRedirectUri) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "KAKAO_REDIRECT_URI 환경변수가 설정되지 않았습니다.",
+      },
+      { status: 500 }
+    );
+  }
+
   const params = new URLSearchParams({
-    client_id: KAKAO_CLIENT_ID,
-    redirect_uri: KAKAO_REDIRECT_URI,
+    client_id: kakaoClientId,
+    redirect_uri: kakaoRedirectUri,
     response_type: "code",
   });
 
