@@ -22,8 +22,9 @@ type InquiryStatus = "대기" | "확인중" | "완료";
 
 type InquiryItem = {
   id: string;
-  name: string;
-  email: string;
+  _id?: string;
+  name?: string;
+  email?: string;
   category: string;
   message: string;
   status: InquiryStatus;
@@ -32,6 +33,12 @@ type InquiryItem = {
   emailSentAt?: string;
   createdAt: string;
   updatedAt?: string;
+
+  // 앱/웹 계정 연결용 필드
+  userId?: string;
+  appUserId?: string;
+  webUserId?: string;
+  source?: "app" | "web" | string;
 };
 
 function getStatusStyle(status: InquiryStatus) {
@@ -74,16 +81,25 @@ function formatDate(value?: string) {
   });
 }
 
+function normalizeText(value?: string | null) {
+  return String(value || "").trim().toLowerCase();
+}
+
 export default function MyInquiriesPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+
+  const safeUser = user as any;
+  const webUserId = safeUser?.id || "";
+  const appUserId = safeUser?.appUserId || safeUser?.appId || "";
+  const userEmail = safeUser?.email || "";
 
   const [inquiries, setInquiries] = useState<InquiryItem[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   async function fetchInquiries() {
-    if (!user?.email) return;
+    if (!user) return;
 
     const token =
       typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
@@ -92,7 +108,21 @@ export default function MyInquiriesPage() {
       setIsFetching(true);
       setErrorMessage("");
 
-      const response = await fetch("/api/contact", {
+      const query = new URLSearchParams();
+
+      if (appUserId) {
+        query.set("appUserId", appUserId);
+      }
+
+      if (webUserId) {
+        query.set("webUserId", webUserId);
+      }
+
+      if (userEmail) {
+        query.set("email", userEmail);
+      }
+
+      const response = await fetch(`/api/contact?${query.toString()}`, {
         cache: "no-store",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -105,11 +135,32 @@ export default function MyInquiriesPage() {
         throw new Error(result.message || "문의내역을 불러오지 못했습니다.");
       }
 
-      const currentEmail = user.email.toLowerCase();
+      const currentAppUserId = normalizeText(appUserId);
+      const currentWebUserId = normalizeText(webUserId);
+      const currentEmail = normalizeText(userEmail);
 
-      const filtered = (result.contacts || []).filter(
-        (item: InquiryItem) => item.email?.toLowerCase() === currentEmail
-      );
+      const filtered = (result.contacts || []).filter((item: InquiryItem) => {
+        const itemAppUserId = normalizeText(item.appUserId || item.userId);
+        const itemWebUserId = normalizeText(item.webUserId);
+        const itemEmail = normalizeText(item.email);
+
+        // 1순위: 앱 계정 ID 기준
+        if (currentAppUserId && itemAppUserId === currentAppUserId) {
+          return true;
+        }
+
+        // 2순위: 웹 유저 ID 기준
+        if (currentWebUserId && itemWebUserId === currentWebUserId) {
+          return true;
+        }
+
+        // 3순위: 기존 문의 호환용 이메일 기준
+        if (currentEmail && itemEmail === currentEmail) {
+          return true;
+        }
+
+        return false;
+      });
 
       setInquiries(filtered);
     } catch (error) {
@@ -131,11 +182,11 @@ export default function MyInquiriesPage() {
   }, [isLoading, user, router]);
 
   useEffect(() => {
-    if (user?.email) {
+    if (user) {
       fetchInquiries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.email]);
+  }, [webUserId, appUserId, userEmail]);
 
   const counts = useMemo(() => {
     return {
@@ -157,13 +208,13 @@ export default function MyInquiriesPage() {
   return (
     <main className="min-h-screen bg-[#F8FBFF] text-slate-900">
       <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 md:px-6 md:py-5">
           <Link href="/" className="flex items-center gap-3">
             <Image src="/insai-logo.png" alt="insai" width={40} height={40} />
-            <span className="text-3xl font-extrabold">insai</span>
+            <span className="text-2xl font-extrabold md:text-3xl">insai</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <Link
               href="/mypage"
               className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold shadow-sm md:inline-flex"
@@ -174,17 +225,17 @@ export default function MyInquiriesPage() {
 
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold shadow-sm"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold shadow-sm md:px-5"
             >
               <Home className="h-4 w-4" />
-              홈으로
+              <span className="hidden sm:inline">홈으로</span>
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-6 py-14">
-        <div className="rounded-[36px] bg-white p-8 shadow-2xl shadow-sky-100 md:p-10">
+      <section className="mx-auto max-w-7xl px-5 py-10 md:px-6 md:py-14">
+        <div className="rounded-[32px] bg-white p-6 shadow-2xl shadow-sky-100 md:rounded-[36px] md:p-10">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-black text-violet-500">My Inquiries</p>
@@ -192,12 +243,14 @@ export default function MyInquiriesPage() {
                 내 문의내역
               </h1>
               <p className="mt-5 max-w-2xl leading-8 text-slate-600">
-                {user.nickname || user.name || "insai 유저"}님이 남긴 문의와
-                관리자 답변을 확인할 수 있습니다.
+                {safeUser.nickname || safeUser.name || "insai 유저"}님이 남긴
+                문의와 관리자 답변을 확인할 수 있습니다.
               </p>
-              <p className="mt-2 text-sm font-bold text-slate-400">
-                조회 이메일: {user.email}
-              </p>
+
+              <div className="mt-4 grid gap-2 text-sm font-bold text-slate-400">
+                <p>조회 이메일: {userEmail || "이메일 정보 없음"}</p>
+                <p>앱 계정 ID: {appUserId || "앱 계정 연결 정보 없음"}</p>
+              </div>
             </div>
 
             <button
@@ -239,7 +292,7 @@ export default function MyInquiriesPage() {
           </div>
         )}
 
-        <section className="mt-8 rounded-[32px] bg-white p-6 shadow-xl shadow-violet-100 md:p-8">
+        <section className="mt-8 rounded-[32px] bg-white p-5 shadow-xl shadow-violet-100 md:p-8">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-black text-sky-500">Inquiry List</p>
@@ -248,7 +301,16 @@ export default function MyInquiriesPage() {
             <Mail className="h-8 w-8 text-violet-400" />
           </div>
 
-          <div className="mt-8 max-h-[760px] space-y-5 overflow-y-auto pr-2">
+          <div className="mt-8 max-h-[760px] space-y-5 overflow-y-auto pr-1 md:pr-2">
+            {isFetching && inquiries.length === 0 && (
+              <div className="rounded-3xl bg-slate-50 p-10 text-center">
+                <RefreshCw className="mx-auto h-10 w-10 animate-spin text-violet-300" />
+                <h3 className="mt-5 text-2xl font-black">
+                  문의내역을 불러오는 중입니다.
+                </h3>
+              </div>
+            )}
+
             {!isFetching && inquiries.length === 0 && (
               <div className="rounded-3xl bg-slate-50 p-10 text-center">
                 <Inbox className="mx-auto h-10 w-10 text-slate-300" />
@@ -256,8 +318,8 @@ export default function MyInquiriesPage() {
                   아직 문의내역이 없습니다.
                 </h3>
                 <p className="mt-3 text-slate-500">
-                  문의하기 페이지에서 로그인한 계정 이메일로 문의를 남기면
-                  이곳에서 확인할 수 있어요.
+                  앱 또는 홈페이지에서 로그인한 계정으로 문의를 남기면 이곳에서
+                  확인할 수 있어요.
                 </p>
                 <Link
                   href="/contact"
@@ -270,11 +332,12 @@ export default function MyInquiriesPage() {
 
             {inquiries.map((item) => {
               const StatusIcon = getStatusIcon(item.status);
+              const itemId = item.id || item._id || `${item.createdAt}-${item.category}`;
 
               return (
                 <article
-                  key={item.id}
-                  className="rounded-3xl bg-slate-50 p-6"
+                  key={itemId}
+                  className="rounded-3xl bg-slate-50 p-5 md:p-6"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -293,6 +356,12 @@ export default function MyInquiriesPage() {
                       <p className="mt-2 text-sm font-semibold text-slate-400">
                         접수일: {formatDate(item.createdAt)}
                       </p>
+
+                      {item.source && (
+                        <p className="mt-1 text-xs font-bold text-slate-400">
+                          접수 경로: {item.source === "app" ? "앱" : "웹"}
+                        </p>
+                      )}
                     </div>
                   </div>
 
