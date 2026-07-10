@@ -16,6 +16,15 @@ type UpdateContactBody = {
 
 const allowedStatuses = ["대기", "확인중", "완료"];
 
+function normalizeSource(value: unknown) {
+  const source = String(value || "").trim().toLowerCase();
+
+  if (source === "app") return "app";
+  if (source === "web") return "web";
+
+  return source || "web";
+}
+
 function serializeContact(contact: any) {
   return {
     id: String(contact._id),
@@ -27,6 +36,16 @@ function serializeContact(contact: any) {
     adminReply: contact.adminReply || "",
     repliedAt: contact.repliedAt || null,
     emailSentAt: contact.emailSentAt || null,
+
+    // 기존 앱 문의 호환
+    userId: contact.userId || "",
+
+    // 웹/앱 계정 연결
+    appUserId: contact.appUserId || contact.userId || "",
+    webUserId: contact.webUserId || "",
+
+    source: normalizeSource(contact.source || "web"),
+    appVersion: contact.appVersion || "",
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
   };

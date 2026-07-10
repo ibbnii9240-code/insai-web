@@ -10,7 +10,14 @@ type CreateContactBody = {
   email?: string;
   category?: string;
   message?: string;
+
+  // 앱에서 넘어오는 기존 값
   userId?: string;
+
+  // 웹/앱 계정 연결용 값
+  appUserId?: string;
+  webUserId?: string;
+
   source?: string;
   appVersion?: string;
 };
@@ -24,6 +31,10 @@ function normalizeText(value: unknown) {
   return value.trim();
 }
 
+function normalizeLower(value: unknown) {
+  return normalizeText(value).toLowerCase();
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -31,6 +42,15 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function normalizeSource(value: string) {
+  const source = normalizeText(value).toLowerCase();
+
+  if (source === "app") return "app";
+  if (source === "web") return "web";
+
+  return source || "web";
 }
 
 function serializeContact(contact: any) {
@@ -44,8 +64,15 @@ function serializeContact(contact: any) {
     adminReply: contact.adminReply || "",
     repliedAt: contact.repliedAt || null,
     emailSentAt: contact.emailSentAt || null,
+
+    // 기존 앱 문의 호환
     userId: contact.userId || "",
-    source: contact.source || "WEB",
+
+    // 웹/앱 계정 연결
+    appUserId: contact.appUserId || contact.userId || "",
+    webUserId: contact.webUserId || "",
+
+    source: normalizeSource(contact.source || "web"),
     appVersion: contact.appVersion || "",
     createdAt: contact.createdAt,
     updatedAt: contact.updatedAt,
@@ -73,6 +100,8 @@ async function sendAdminContactNotification({
   message,
   source,
   appVersion,
+  appUserId,
+  webUserId,
 }: {
   name: string;
   email: string;
@@ -80,6 +109,8 @@ async function sendAdminContactNotification({
   message: string;
   source: string;
   appVersion: string;
+  appUserId: string;
+  webUserId: string;
 }) {
   if (!MAIL_USER || !MAIL_PASS || !OWNER_EMAIL) {
     console.warn("MAIL_USER, MAIL_PASS, or OWNER_EMAIL is missing.");
@@ -100,6 +131,8 @@ async function sendAdminContactNotification({
   const safeMessage = escapeHtml(message).replaceAll("\n", "<br />");
   const safeSource = escapeHtml(source);
   const safeAppVersion = escapeHtml(appVersion);
+  const safeAppUserId = escapeHtml(appUserId);
+  const safeWebUserId = escapeHtml(webUserId);
 
   await transporter.sendMail({
     from: `"insai 문의 알림" <${MAIL_USER}>`,
@@ -113,6 +146,8 @@ async function sendAdminContactNotification({
 문의 유형: ${category}
 접수 경로: ${source}
 앱 버전: ${appVersion || "-"}
+앱 유저 ID: ${appUserId || "-"}
+웹 유저 ID: ${webUserId || "-"}
 
 문의 내용:
 ${message}
@@ -138,6 +173,10 @@ ${message}
             <p style="margin:0 0 8px;font-size:13px;color:#64748b;font-weight:700;">접수 경로</p>
             <p style="margin:0;font-size:16px;font-weight:800;">${safeSource}${safeAppVersion ? ` · ${safeAppVersion}` : ""}</p>
           </div>
+          <div style="margin-top:12px;padding:18px;border-radius:18px;background:#f8fafc;">
+            <p style="margin:0 0 8px;font-size:13px;color:#64748b;font-weight:700;">연결 계정</p>
+            <p style="margin:0;font-size:14px;font-weight:800;line-height:1.8;">App User ID: ${safeAppUserId || "-"}<br />Web User ID: ${safeWebUserId || "-"}</p>
+          </div>
           <div style="margin-top:18px;">
             <p style="margin:0 0 10px;font-size:15px;font-weight:800;">문의 내용</p>
             <div style="padding:18px;border-radius:18px;background:#f1f5f9;line-height:1.8;">
@@ -152,11 +191,55 @@ ${message}
   return true;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await connectDB();
 
-    const contacts = await Contact.find()
+    const loggedInUser = await getLoggedInUser(request);
+    const url = new URL(request.url);
+
+    const queryAppUserId = normalizeText(url.searchParams.get("appUserId"));
+    const queryWebUserId = normalizeText(url.searchParams.get("webUserId"));
+    const queryEmail = normalizeLower(url.searchParams.get("email"));
+
+    // 로그인 유저 정보도 함께 사용
+    const loggedWebUserId =
+      loggedInUser && typeof loggedInUser === "object"
+        ? String((loggedInUser as any)._id || "")
+        : "";
+
+    const loggedAppUserId =
+      loggedInUser && typeof loggedInUser === "object"
+        ? normalizeText((loggedInUser as any).appUserId)
+        : "";
+
+    const loggedEmail =
+      loggedInUser && typeof loggedInUser === "object"
+        ? normalizeLower((loggedInUser as any).email)
+        : "";
+
+    const appUserId = queryAppUserId || loggedAppUserId;
+    const webUserId = queryWebUserId || loggedWebUserId;
+    const email = queryEmail || loggedEmail;
+
+    const filters: any[] = [];
+
+    if (appUserId) {
+      filters.push({ appUserId });
+      filters.push({ userId: appUserId }); // 기존 앱 문의 호환
+    }
+
+    if (webUserId) {
+      filters.push({ webUserId });
+    }
+
+    if (email) {
+      filters.push({ email });
+    }
+
+    const where = filters.length > 0 ? { $or: filters } : {};
+
+    const contacts = await Contact.find(where)
       .sort({ createdAt: -1 })
       .limit(300)
       .lean();
@@ -188,6 +271,16 @@ export async function POST(request: Request) {
     const bodyName = normalizeText(body.name);
     const bodyEmail = normalizeText(body.email);
 
+    const loggedWebUserId =
+      loggedInUser && typeof loggedInUser === "object"
+        ? String((loggedInUser as any)._id || "")
+        : "";
+
+    const loggedAppUserId =
+      loggedInUser && typeof loggedInUser === "object"
+        ? normalizeText((loggedInUser as any).appUserId)
+        : "";
+
     const userName =
       loggedInUser && typeof loggedInUser === "object"
         ? normalizeText((loggedInUser as any).nickname) ||
@@ -203,8 +296,13 @@ export async function POST(request: Request) {
     const email = userEmail || bodyEmail || "이메일 없음";
     const category = normalizeText(body.category) || "일반 문의";
     const message = normalizeText(body.message);
-    const userId = normalizeText(body.userId);
-    const source = normalizeText(body.source) || (loggedInUser ? "WEB" : "APP");
+
+    // 기존 앱에서 userId로 보내던 값은 앱 유저 ID로 취급
+    const legacyUserId = normalizeText(body.userId);
+    const appUserId = normalizeText(body.appUserId) || legacyUserId || loggedAppUserId;
+    const webUserId = normalizeText(body.webUserId) || loggedWebUserId;
+
+    const source = normalizeSource(body.source || (loggedInUser ? "web" : "app"));
     const appVersion = normalizeText(body.appVersion);
 
     if (message.length < 2) {
@@ -226,7 +324,14 @@ export async function POST(request: Request) {
       adminReply: "",
       repliedAt: null,
       emailSentAt: null,
-      userId,
+
+      // 기존 앱 호환
+      userId: legacyUserId || appUserId,
+
+      // 신규 연결 필드
+      appUserId,
+      webUserId,
+
       source,
       appVersion,
     });
@@ -241,6 +346,8 @@ export async function POST(request: Request) {
         message,
         source,
         appVersion,
+        appUserId,
+        webUserId,
       });
     } catch (emailError) {
       console.error("Admin contact notification failed:", emailError);
