@@ -17,12 +17,17 @@ import {
   UserRound,
   LogOut,
   ChevronDown,
+  Menu,
+  X,
+  Download,
 } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Home() {
   const router = useRouter();
   const { user, isLoggedIn, isLoading, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const features = [
     {
@@ -77,28 +82,33 @@ export default function Home() {
 
   function handleLogout() {
     logout();
+    setIsMobileMenuOpen(false);
     router.push("/");
   }
 
+  function closeMobileMenu() {
+    setIsMobileMenuOpen(false);
+  }
+
   return (
-    <main className="min-h-screen overflow-hidden bg-[#F8FBFF] text-slate-900">
+    <main className="min-h-screen overflow-x-hidden bg-[#F8FBFF] text-slate-900">
       <header className="fixed left-0 right-0 top-0 z-[100] border-b border-slate-100 bg-white/90 backdrop-blur-xl shadow-sm shadow-slate-100/60">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-5 md:px-6 md:py-5">
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/insai-logo.png"
               alt="insai logo"
-              width={42}
-              height={42}
-              className="rounded-xl"
+              width={38}
+              height={38}
+              className="rounded-xl md:h-[42px] md:w-[42px]"
               priority
             />
-            <span className="text-3xl font-extrabold tracking-tight text-slate-900">
+            <span className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
               insai
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-9 text-sm font-semibold text-slate-600 md:flex">
+          <nav className="hidden items-center gap-9 text-sm font-semibold text-slate-600 lg:flex">
             <Link href="/" className="hover:text-violet-500">
               홈
             </Link>
@@ -184,18 +194,91 @@ export default function Home() {
               </div>
             )}
 
-            <button className="rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:scale-105">
+            <button className="hidden rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-200 transition hover:scale-105 sm:inline-flex">
+              <Download className="h-5 w-5" />
               앱 다운로드
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
+              aria-label="모바일 메뉴"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
+
+        {isMobileMenuOpen && (
+          <div className="border-t border-slate-100 bg-white px-4 py-4 shadow-xl lg:hidden">
+            <nav className="grid gap-2">
+              {[
+                ["홈", "/"],
+                ["커뮤니티", "/#community"],
+                ["소개팅", "/#dating"],
+                ["안전센터", "/safety"],
+                ["고객센터", "/support"],
+                ["문의하기", "/contact"],
+              ].map(([label, href]) => (
+                <Link
+                  key={label}
+                  href={href}
+                  onClick={closeMobileMenu}
+                  className="rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="mt-4 grid gap-2 border-t border-slate-100 pt-4">
+              {!isLoading && !isLoggedIn && (
+                <Link
+                  href="/login"
+                  onClick={closeMobileMenu}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 font-black text-slate-700"
+                >
+                  <LogIn className="h-4 w-4" />
+                  로그인
+                </Link>
+              )}
+
+              {!isLoading && isLoggedIn && user && (
+                <>
+                  <Link
+                    href="/mypage"
+                    onClick={closeMobileMenu}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 font-black text-white"
+                  >
+                    <UserRound className="h-4 w-4" />
+                    마이페이지
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 font-black text-rose-500"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    로그아웃
+                  </button>
+                </>
+              )}
+
+              <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-4 py-3 font-black text-white">
+                <Download className="h-4 w-4" />
+                앱 다운로드
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
-      <div className="h-[88px]" />
+      <div className="h-[66px] md:h-[88px]" />
 
       <section
         id="home"
-        className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-2 lg:py-24"
+        className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-12 sm:px-5 md:px-6 md:py-16 lg:grid-cols-2 lg:py-24"
       >
         <div className="absolute right-[-140px] top-10 h-[460px] w-[460px] rounded-full bg-violet-200/40 blur-3xl" />
         <div className="absolute bottom-10 left-[-120px] h-[360px] w-[360px] rounded-full bg-sky-200/50 blur-3xl" />
@@ -205,7 +288,7 @@ export default function Home() {
             글로벌 커뮤니티 플랫폼
           </div>
 
-          <h1 className="text-5xl font-black leading-tight tracking-tight md:text-7xl">
+          <h1 className="text-[2.45rem] font-black leading-[1.12] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
             당신의 바이브가
             <br />
             <span className="bg-gradient-to-r from-sky-500 via-blue-500 to-violet-500 bg-clip-text text-transparent">
@@ -218,19 +301,19 @@ export default function Home() {
             자연스럽게 관계를 만들어가는 글로벌 커뮤니티입니다.
           </p>
 
-          <div className="mt-10 flex flex-wrap gap-4">
+          <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap md:mt-10 md:gap-4">
             <Link
               href={isLoggedIn ? "/mypage" : "/login"}
-              className="rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-8 py-4 text-base font-bold text-white shadow-xl shadow-violet-200 transition hover:scale-105"
+              className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-6 py-4 text-base font-bold text-white shadow-xl shadow-violet-200 transition hover:scale-[1.02] sm:px-8"
             >
               {isLoggedIn ? "마이페이지" : "지금 시작하기"}
             </Link>
-            <button className="rounded-2xl border border-slate-200 bg-white px-8 py-4 text-base font-bold text-slate-700 shadow-sm transition hover:bg-slate-50">
+            <button className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-4 text-base font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:px-8">
               앱 다운로드
             </button>
           </div>
 
-          <div className="mt-12 grid max-w-xl grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mt-10 grid max-w-xl grid-cols-2 gap-3 sm:gap-4 md:mt-12 md:grid-cols-4">
             {features.map((item) => {
               const Icon = item.icon;
 
@@ -260,12 +343,13 @@ export default function Home() {
         <div className="relative z-10 flex justify-center lg:justify-end">
           <div className="absolute top-10 h-[560px] w-[560px] rounded-full bg-gradient-to-br from-sky-200 via-blue-100 to-violet-200 blur-2xl" />
 
-          <div className="relative rotate-[1deg] rounded-[54px] border-[10px] border-slate-950 bg-white p-3 shadow-2xl">
-            <div className="relative h-[760px] w-[390px] overflow-hidden rounded-[38px] bg-white">
+          <div className="relative rotate-[0.5deg] rounded-[38px] border-[7px] border-slate-950 bg-white p-2 shadow-2xl sm:rounded-[46px] sm:border-[9px] sm:p-3 lg:rounded-[54px] lg:border-[10px]">
+            <div className="relative h-[560px] w-[288px] overflow-hidden rounded-[27px] bg-white sm:h-[650px] sm:w-[334px] sm:rounded-[33px] lg:h-[760px] lg:w-[390px] lg:rounded-[38px]">
               <Image
                 src="/community-screen.jpeg"
                 alt="insai community screen"
                 fill
+                sizes="(max-width: 640px) 288px, (max-width: 1024px) 334px, 390px"
                 className="object-contain"
                 priority
               />
@@ -274,17 +358,17 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="community" className="mx-auto max-w-7xl px-6 py-24">
-        <div className="rounded-[36px] bg-white p-10 shadow-xl shadow-sky-100 md:p-16">
+      <section id="community" className="mx-auto max-w-7xl px-4 py-12 sm:px-5 md:px-6 md:py-20 lg:py-24">
+        <div className="rounded-[28px] bg-white p-6 shadow-xl shadow-sky-100 sm:p-8 md:rounded-[36px] md:p-12 lg:p-16">
           <div className="grid items-center gap-12 md:grid-cols-2">
             <div>
               <p className="font-black text-violet-500">Community First</p>
-              <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">
+              <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl md:mt-4 md:text-5xl">
                 소개팅보다 먼저,
                 <br />
                 소통으로 시작되는 관계
               </h2>
-              <p className="mt-6 text-lg leading-8 text-slate-600">
+              <p className="mt-5 text-base leading-8 text-slate-600 sm:text-lg md:mt-6">
                 insai의 중심은 커뮤니티입니다. 사람들은 게시물, 댓글, 채팅,
                 취향과 바이브를 통해 자연스럽게 서로를 알아갑니다.
               </p>
@@ -310,16 +394,16 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="dating" className="mx-auto max-w-7xl px-6 py-24">
-        <div className="rounded-[36px] bg-gradient-to-br from-sky-50 to-violet-50 p-10 shadow-xl shadow-violet-100 md:p-16">
+      <section id="dating" className="mx-auto max-w-7xl px-4 py-12 sm:px-5 md:px-6 md:py-20 lg:py-24">
+        <div className="rounded-[28px] bg-gradient-to-br from-sky-50 to-violet-50 p-6 shadow-xl shadow-violet-100 sm:p-8 md:rounded-[36px] md:p-12 lg:p-16">
           <div className="text-center">
             <p className="font-black text-violet-500">Optional Dating</p>
-            <h2 className="mt-4 text-4xl font-black md:text-5xl">
+            <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl md:mt-4 md:text-5xl">
               관계는 커뮤니티에서 시작하고,
               <br />
               소개팅은 원할 때만 선택하세요
             </h2>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg md:mt-6">
               insai는 소개팅 중심 앱이 아니라 글로벌 커뮤니티를 기반으로 한
               관계 형성 플랫폼입니다.
             </p>
@@ -327,13 +411,13 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="safety-preview" className="mx-auto max-w-7xl px-6 py-24">
+      <section id="safety-preview" className="mx-auto max-w-7xl px-4 py-12 sm:px-5 md:px-6 md:py-20 lg:py-24">
         <div className="text-center">
           <p className="font-black text-sky-500">Safety Center</p>
-          <h2 className="mt-4 text-4xl font-black md:text-5xl">
+          <h2 className="mt-3 text-3xl font-black leading-tight sm:text-4xl md:mt-4 md:text-5xl">
             안전하고 신뢰할 수 있는 insai
           </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg md:mt-6">
             신고, 차단, 차단 목록 관리, 24시간 검토 정책으로 모두가 안심하고
             소통할 수 있는 커뮤니티를 만들어갑니다.
           </p>
@@ -346,11 +430,11 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-10 grid gap-4 md:mt-12 md:grid-cols-3 md:gap-6">
           {["신고 기능", "차단 기능", "24시간 검토"].map((title) => (
             <div
               key={title}
-              className="rounded-3xl bg-white p-8 shadow-lg shadow-violet-100"
+              className="rounded-3xl bg-white p-6 shadow-lg shadow-violet-100 sm:p-8"
             >
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
                 <ShieldCheck className="h-7 w-7 text-violet-500" />
@@ -364,7 +448,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="support" className="mx-auto max-w-7xl px-6 py-24">
+      <section id="support" className="mx-auto max-w-7xl px-4 py-12 sm:px-5 md:px-6 md:py-20 lg:py-24">
         <div className="grid gap-6 md:grid-cols-3">
           {supportCards.map((item) => {
             const Icon = item.icon;
@@ -373,7 +457,7 @@ export default function Home() {
               <Link
                 key={item.title}
                 href={item.href}
-                className="rounded-3xl border border-slate-100 bg-white p-8 shadow-lg shadow-sky-100 transition hover:-translate-y-1 hover:shadow-xl"
+                className="rounded-3xl border border-slate-100 bg-white p-6 shadow-lg shadow-sky-100 transition hover:-translate-y-1 hover:shadow-xl sm:p-8"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
                   <Icon className={`h-7 w-7 ${item.color}`} />
@@ -390,7 +474,7 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-slate-100 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-12 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-7 px-4 py-10 sm:px-5 md:px-6 md:py-12 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Link href="/" className="flex items-center gap-3">
               <Image
@@ -406,7 +490,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-5 text-sm font-semibold text-slate-500">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-3 text-sm font-semibold text-slate-500 sm:flex sm:flex-wrap">
             <Link href="/privacy">Privacy Policy</Link>
             <Link href="/terms">Terms of Service</Link>
             <Link href="/child-safety">Child Safety</Link>
