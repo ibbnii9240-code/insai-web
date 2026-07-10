@@ -72,6 +72,13 @@ export async function GET(request: Request) {
         agreedToTerms: user.agreedToTerms,
         agreedToPrivacy: user.agreedToPrivacy,
         agreedToMarketing: user.agreedToMarketing,
+
+        // 앱 DB 연결 정보
+        appUserId: (user as any).appUserId || "",
+        appOnboardingCompleted: Boolean(
+          (user as any).appOnboardingCompleted ?? user.isProfileCompleted
+        ),
+
         lastLoginAt: user.lastLoginAt,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

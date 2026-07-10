@@ -28,6 +28,11 @@ export type InsaiUser = {
   agreedToTerms: boolean;
   agreedToPrivacy: boolean;
   agreedToMarketing: boolean;
+
+  // 앱 DB 연결 정보
+  appUserId?: string;
+  appOnboardingCompleted?: boolean;
+
   lastLoginAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -90,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
 
       const response = await fetch("/api/auth/me", {
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${currentToken}`,
         },
