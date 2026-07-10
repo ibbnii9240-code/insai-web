@@ -108,8 +108,7 @@ export default function MyPage() {
       desc: "신고 내역과 처리 결과 확인",
       href: "/my-reports",
       color: "text-rose-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
     {
       icon: CreditCard,
@@ -350,7 +349,7 @@ export default function MyPage() {
               <p className="font-black text-sky-500">Quick Support</p>
               <h2 className="mt-2 text-3xl font-black">고객지원 바로가기</h2>
               <p className="mt-3 leading-8 text-slate-600">
-                문의를 새로 남기거나, 기존 답변을 확인할 수 있습니다.
+                문의를 새로 남기거나, 기존 답변과 신고 처리 결과를 확인할 수 있습니다.
               </p>
             </div>
 
@@ -369,6 +368,14 @@ export default function MyPage() {
               >
                 <Mail className="h-5 w-5" />
                 내 문의내역
+              </Link>
+
+              <Link
+                href="/my-reports"
+                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-rose-400 to-violet-500 px-5 py-3 font-black text-white shadow-lg shadow-rose-100"
+              >
+                <ShieldAlert className="h-5 w-5" />
+                내 신고내역
               </Link>
             </div>
           </div>
