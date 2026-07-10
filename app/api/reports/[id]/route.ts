@@ -9,39 +9,36 @@ type RouteContext = {
 };
 
 type UpdateReportBody = {
-  status?: "대기" | "확인중" | "완료" | "기각";
-  adminMemo?: string;
-  processedBy?: string;
+  status?: "대기" | "확인중" | "완료" | "반려";
+  adminNote?: string;
 };
 
-const allowedStatuses = ["대기", "확인중", "완료", "기각"];
-
-function normalizeText(value: unknown) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
+const allowedStatuses = ["대기", "확인중", "완료", "반려"];
 
 function serializeReport(report: any) {
   return {
     id: String(report._id),
 
-    reporterId: report.reporterId,
-    reporterName: report.reporterName,
-    reporterEmail: report.reporterEmail,
+    reporterName: report.reporterName || "",
+    reporterEmail: report.reporterEmail || "",
+    reporterId: report.reporterId || "",
 
-    targetUserId: report.targetUserId,
-    targetUserName: report.targetUserName,
+    reportedUserId: report.reportedUserId || "",
+    reportedNickname: report.reportedNickname || "",
 
-    category: report.category,
-    reason: report.reason,
-    status: report.status,
+    category: report.category || "신고",
+    reason: report.reason || "",
+    message: report.message || "",
 
-    adminMemo: report.adminMemo || "",
-    processedBy: report.processedBy || "",
+    status: report.status || "대기",
+    adminNote: report.adminNote || "",
     processedAt: report.processedAt || null,
+
+    userId: report.userId || "",
+    appUserId: report.appUserId || report.userId || report.reporterId || "",
+    webUserId: report.webUserId || "",
+    source: report.source || "app",
+    appVersion: report.appVersion || "",
 
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
@@ -101,12 +98,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const nextStatus = body.status;
-    const nextAdminMemo = normalizeText(body.adminMemo);
-    const nextProcessedBy = normalizeText(body.processedBy) || "관리자";
-
-    if (nextStatus) {
-      if (!allowedStatuses.includes(nextStatus)) {
+    if (body.status) {
+      if (!allowedStatuses.includes(body.status)) {
         return NextResponse.json(
           {
             ok: false,
@@ -116,16 +109,22 @@ export async function PATCH(request: Request, context: RouteContext) {
         );
       }
 
-      report.status = nextStatus;
-      report.processedBy = nextProcessedBy;
-      report.processedAt = new Date();
+      report.status = body.status;
+
+      if (body.status === "완료" || body.status === "반려") {
+        report.processedAt = new Date();
+      }
     }
 
-    if (typeof body.adminMemo === "string") {
-      report.adminMemo = nextAdminMemo;
+    if (typeof body.adminNote === "string") {
+      report.adminNote = body.adminNote.trim();
+
+      if (report.adminNote.length > 0 && report.status === "대기") {
+        report.status = "확인중";
+      }
     }
 
-    if (!nextStatus && typeof body.adminMemo !== "string") {
+    if (!body.status && typeof body.adminNote !== "string") {
       return NextResponse.json(
         {
           ok: false,
@@ -148,7 +147,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         ok: false,
-        message: "신고 수정 중 오류가 발생했습니다.",
+        message: "신고 상태 변경 중 오류가 발생했습니다.",
       },
       { status: 500 }
     );
