@@ -7,6 +7,8 @@ import User from "@/models/User";
 type ReportStatus = "대기" | "확인중" | "완료" | "반려";
 
 type CreateReportBody = {
+  appReportId?: string;
+
   reporterName?: string;
   reporterEmail?: string;
   reporterId?: string;
@@ -17,6 +19,10 @@ type CreateReportBody = {
   category?: string;
   reason?: string;
   message?: string;
+
+  postId?: string;
+  chatRoomId?: string;
+  messageId?: string;
 
   userId?: string;
   appUserId?: string;
@@ -58,6 +64,8 @@ function serializeReport(report: any) {
   return {
     id: String(report._id),
 
+    appReportId: report.appReportId || "",
+
     reporterName: report.reporterName || "",
     reporterEmail: report.reporterEmail || "",
     reporterId: report.reporterId || "",
@@ -68,6 +76,10 @@ function serializeReport(report: any) {
     category: report.category || "신고",
     reason: report.reason || "",
     message: report.message || "",
+
+    postId: report.postId || "",
+    chatRoomId: report.chatRoomId || "",
+    messageId: report.messageId || "",
 
     status: normalizeStatus(report.status),
     adminNote: report.adminNote || "",
@@ -196,6 +208,8 @@ export async function POST(request: Request) {
           normalizeText((loggedInUser as any).name)
         : "";
 
+    const appReportId = normalizeText(body.appReportId);
+
     const legacyUserId = normalizeText(body.userId);
     const appUserId =
       normalizeText(body.appUserId) ||
@@ -219,6 +233,10 @@ export async function POST(request: Request) {
     const reason = normalizeText(body.reason) || normalizeText(body.message);
     const message = normalizeText(body.message) || reason;
 
+    const postId = normalizeText(body.postId);
+    const chatRoomId = normalizeText(body.chatRoomId);
+    const messageId = normalizeText(body.messageId);
+
     const source = normalizeSource(body.source);
     const appVersion = normalizeText(body.appVersion);
 
@@ -233,6 +251,8 @@ export async function POST(request: Request) {
     }
 
     const report = await Report.create({
+      appReportId,
+
       reporterName,
       reporterEmail,
       reporterId,
@@ -243,6 +263,10 @@ export async function POST(request: Request) {
       category,
       reason,
       message,
+
+      postId,
+      chatRoomId,
+      messageId,
 
       status: "대기",
       adminNote: "",
