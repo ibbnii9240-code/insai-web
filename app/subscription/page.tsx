@@ -6,10 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  Clover,
   Crown,
   Gem,
   Home,
   RefreshCw,
+  Rocket,
   ShieldCheck,
   Sparkles,
   Star,
@@ -17,107 +19,239 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-type BillingCycle = "monthly" | "yearly";
-type PlanId = "bronze" | "silver" | "gold";
+type PackageId = "1w" | "1m" | "3m";
+type PlanId = "basic" | "plus" | "vip";
+
+type PackageOption = {
+  id: PackageId;
+  label: string;
+  price: string;
+  monthlyCalc?: string;
+  badge?: string;
+};
 
 type Plan = {
   id: PlanId;
   name: string;
   subtitle: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
   icon: typeof Star;
   badge?: string;
   features: string[];
+  packages: PackageOption[];
   cardClass: string;
   iconClass: string;
   buttonClass: string;
 };
 
-const plans: Plan[] = [
+type CloverPack = {
+  id: string;
+  count: number;
+  price: string;
+  badge?: string;
+  highlight?: boolean;
+};
+
+const PLANS: Plan[] = [
   {
-    id: "bronze",
-    name: "Bronze",
-    subtitle: "insai를 가볍게 시작하는 기본 플랜",
-    monthlyPrice: 4900,
-    yearlyPrice: 49000,
+    id: "basic",
+    name: "Basic Plan",
+    subtitle: "insai의 핵심 프리미엄 기능을 시작하는 기본 요금제",
     icon: Star,
     features: [
-      "일일 스와이프 기본 제공",
-      "기본 검색 필터",
-      "커뮤니티 핵심 기능 이용",
-      "기본 고객지원",
+      "스크롤 라이크 무제한",
+      "되돌리기 무제한",
+      "매주 부스터 1개",
+      "매주 슈퍼라이크 1개",
+      "패스포트 모드 무제한",
     ],
-    cardClass: "border-amber-200 bg-gradient-to-b from-amber-50 to-white",
-    iconClass: "bg-amber-100 text-amber-600",
-    buttonClass:
-      "bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100",
+    packages: [
+      {
+        id: "1w",
+        label: "1주",
+        price: "₩7,000",
+      },
+      {
+        id: "1m",
+        label: "1개월",
+        price: "₩14,000",
+        badge: "인기",
+      },
+      {
+        id: "3m",
+        label: "3개월",
+        price: "₩29,000",
+        monthlyCalc: "월 약 ₩9,667",
+      },
+    ],
+    cardClass:
+      "border-slate-800 bg-gradient-to-b from-slate-950 to-slate-900 text-white",
+    iconClass: "bg-white/10 text-white",
+    buttonClass: "bg-white text-slate-950 hover:bg-slate-100",
   },
   {
-    id: "silver",
-    name: "Silver",
-    subtitle: "더 많은 연결과 편리한 기능을 원하는 플랜",
-    monthlyPrice: 9900,
-    yearlyPrice: 99000,
+    id: "plus",
+    name: "Plus Plan",
+    subtitle: "좋아요 확인과 더 많은 주간 혜택을 제공하는 인기 요금제",
     icon: Gem,
     badge: "추천",
     features: [
-      "Bronze의 모든 기능",
-      "일일 스와이프 추가 제공",
-      "고급 검색 필터",
-      "좋아요 확인 기능",
-      "광고 노출 감소",
+      "스크롤 라이크 무제한",
+      "내가 받은 라이크 보기",
+      "되돌리기 무제한",
+      "매주 무료 부스터 2개",
+      "매주 무료 슈퍼라이크 3개",
+      "패스포트 무제한",
+      "실시간 국내 TOP 20 유저 5명에게 무료 친구신청",
+    ],
+    packages: [
+      {
+        id: "1w",
+        label: "1주",
+        price: "₩9,900",
+      },
+      {
+        id: "1m",
+        label: "1개월",
+        price: "₩29,000",
+        badge: "인기",
+      },
+      {
+        id: "3m",
+        label: "3개월",
+        price: "₩59,000",
+        monthlyCalc: "월 약 ₩19,667",
+      },
     ],
     cardClass:
-      "border-sky-300 bg-gradient-to-b from-sky-50 via-white to-violet-50 ring-2 ring-sky-200",
+      "border-sky-200 bg-gradient-to-b from-white via-sky-50 to-white text-slate-950 ring-2 ring-sky-100",
     iconClass: "bg-sky-100 text-sky-600",
     buttonClass:
-      "bg-gradient-to-r from-sky-500 to-violet-500 text-white shadow-violet-200 hover:opacity-90",
+      "bg-gradient-to-r from-sky-500 to-violet-500 text-white hover:opacity-90",
   },
   {
-    id: "gold",
-    name: "Gold",
-    subtitle: "insai의 모든 프리미엄 기능을 이용하는 최고 플랜",
-    monthlyPrice: 19900,
-    yearlyPrice: 199000,
+    id: "vip",
+    name: "VIP Plan",
+    subtitle: "글로벌 우선 노출과 토크패스까지 제공하는 최고 등급 요금제",
     icon: Crown,
-    badge: "Premium",
+    badge: "VIP",
     features: [
-      "Silver의 모든 기능",
-      "좋아요 전체 확인",
-      "프로필 우선 노출",
-      "프로필 부스트",
-      "광고 제거",
-      "프리미엄 고객지원",
+      "스크롤 라이크 무제한",
+      "내가 받은 라이크 보기",
+      "되돌리기 무제한",
+      "매주 무료 슈퍼라이크 4개",
+      "패스포트 무제한",
+      "실시간 글로벌 TOP 20 유저 5명에게 매주 무료 친구신청",
+      "상대에게 내 프로필 먼저 보이게 하기",
+      "토크패스 매주 5개 무료",
     ],
-    cardClass: "border-violet-300 bg-gradient-to-b from-violet-50 to-white",
+    packages: [
+      {
+        id: "1w",
+        label: "1주",
+        price: "₩19,000",
+      },
+      {
+        id: "1m",
+        label: "1개월",
+        price: "₩49,000",
+        badge: "인기",
+      },
+      {
+        id: "3m",
+        label: "3개월",
+        price: "₩99,000",
+        monthlyCalc: "월 ₩33,000",
+      },
+    ],
+    cardClass:
+      "border-violet-200 bg-gradient-to-br from-violet-100 via-sky-50 to-fuchsia-100 text-slate-950",
     iconClass: "bg-violet-100 text-violet-600",
     buttonClass:
-      "bg-slate-950 text-white hover:bg-slate-800 shadow-slate-200",
+      "bg-gradient-to-r from-violet-600 to-indigo-700 text-white hover:opacity-90",
   },
 ];
 
-function formatPrice(value: number) {
-  return new Intl.NumberFormat("ko-KR").format(value);
+const CLOVER_PACKS: CloverPack[] = [
+  {
+    id: "c1",
+    count: 1,
+    price: "₩1,500",
+  },
+  {
+    id: "c3",
+    count: 3,
+    price: "₩3,900",
+    badge: "5% OFF",
+  },
+  {
+    id: "c5",
+    count: 5,
+    price: "₩5,900",
+    badge: "10% OFF",
+  },
+  {
+    id: "c10",
+    count: 10,
+    price: "₩9,900",
+    badge: "BEST",
+    highlight: true,
+  },
+  {
+    id: "c20",
+    count: 20,
+    price: "₩19,000",
+    badge: "20% OFF",
+  },
+];
+
+function normalizeCurrentPlan(value: unknown): PlanId | "free" {
+  const plan = String(value || "free").toLowerCase();
+
+  if (plan === "basic" || plan === "bronze") return "basic";
+  if (plan === "plus" || plan === "silver") return "plus";
+  if (plan === "vip" || plan === "gold") return "vip";
+
+  return "free";
+}
+
+function currentPlanLabel(plan: PlanId | "free") {
+  if (plan === "basic") return "Basic Plan";
+  if (plan === "plus") return "Plus Plan";
+  if (plan === "vip") return "VIP Plan";
+  return "무료 이용중";
 }
 
 export default function SubscriptionPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
 
-  const [billingCycle, setBillingCycle] =
-    useState<BillingCycle>("monthly");
-  const [selectedPlan, setSelectedPlan] =
-    useState<PlanId | null>(null);
+  const [selectedPackages, setSelectedPackages] = useState<
+    Record<PlanId, PackageId>
+  >({
+    basic: "1m",
+    plus: "1m",
+    vip: "1m",
+  });
+  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
   const safeUser = user as any;
-  const currentPlan = String(
-    safeUser?.subscriptionPlan ||
-      safeUser?.plan ||
-      safeUser?.membership ||
-      "free"
-  ).toLowerCase();
+
+  const currentPlan = useMemo(
+    () =>
+      normalizeCurrentPlan(
+        safeUser?.subscriptionPlan ||
+          safeUser?.plan ||
+          safeUser?.membership ||
+          safeUser?.premiumPlan
+      ),
+    [
+      safeUser?.subscriptionPlan,
+      safeUser?.plan,
+      safeUser?.membership,
+      safeUser?.premiumPlan,
+    ]
+  );
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -125,15 +259,36 @@ export default function SubscriptionPage() {
     }
   }, [isLoading, user, router]);
 
-  const yearlySavingText = useMemo(() => {
-    return "연간 결제 시 약 2개월 할인";
-  }, []);
+  function selectPackage(planId: PlanId, packageId: PackageId) {
+    setSelectedPackages((prev) => ({
+      ...prev,
+      [planId]: packageId,
+    }));
+  }
 
   function handleSelectPlan(plan: Plan) {
+    const selectedPackage =
+      plan.packages.find(
+        (packageOption) =>
+          packageOption.id === selectedPackages[plan.id]
+      ) || plan.packages[1];
+
     setSelectedPlan(plan.id);
 
     window.alert(
-      `${plan.name} 플랜 결제는 insai 앱의 App Store 또는 Google Play 인앱결제로 진행해주세요.`
+      `${plan.name} ${selectedPackage.label} 요금제(${selectedPackage.price}) 결제는 insai 앱의 App Store 또는 Google Play 인앱결제로 진행해주세요.`
+    );
+  }
+
+  function handleCloverPurchase(pack: CloverPack) {
+    window.alert(
+      `클로버 ${pack.count}개(${pack.price}) 구매는 insai 앱의 인앱결제로 진행해주세요.`
+    );
+  }
+
+  function handleExchangeItem(itemName: string, cost: number) {
+    window.alert(
+      `${itemName}은 클로버 ${cost}개로 앱에서 교환할 수 있습니다.`
     );
   }
 
@@ -144,7 +299,7 @@ export default function SubscriptionPage() {
       await new Promise((resolve) => setTimeout(resolve, 700));
 
       window.alert(
-        "구독 복원은 insai 앱의 구독 관리 화면에서 진행해주세요."
+        "구매 복원은 insai 앱의 프리미엄 화면에서 진행해주세요."
       );
     } finally {
       setIsRestoring(false);
@@ -167,6 +322,7 @@ export default function SubscriptionPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
               <Sparkles className="h-5 w-5 text-violet-500" />
             </div>
+
             <div>
               <p className="text-sm font-black text-violet-500">
                 insai Premium
@@ -196,22 +352,22 @@ export default function SubscriptionPage() {
       </header>
 
       <section className="mx-auto max-w-7xl px-5 py-10 md:px-6 md:py-14">
-        <section className="overflow-hidden rounded-[36px] bg-gradient-to-br from-sky-500 via-violet-500 to-fuchsia-500 p-7 text-white shadow-2xl shadow-violet-200 md:p-12">
+        <section className="overflow-hidden rounded-[36px] bg-gradient-to-br from-slate-950 via-violet-950 to-indigo-950 p-7 text-white shadow-2xl shadow-violet-200 md:p-12">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-black backdrop-blur">
-              <Zap className="h-4 w-4" />
-              insai Premium
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-black backdrop-blur">
+              <Zap className="h-4 w-4 text-cyan-300" />
+              Upgrade to Insai Premium
             </div>
 
             <h1 className="mt-6 text-4xl font-black leading-tight md:text-6xl">
-              더 많은 연결을 위한
+              Basic · Plus · VIP
               <br />
-              나에게 맞는 플랜
+              앱과 동일한 프리미엄 혜택
             </h1>
 
-            <p className="mt-5 max-w-2xl text-base leading-8 text-white/85 md:text-lg">
-              Bronze, Silver, Gold 중 원하는 플랜을 비교하고 앱에서
-              안전하게 구독할 수 있습니다.
+            <p className="mt-5 max-w-2xl text-base leading-8 text-white/75 md:text-lg">
+              앱에서 제공 중인 실제 요금제, 기간별 가격, 클로버 상품과
+              교환 아이템을 웹에서도 확인할 수 있습니다.
             </p>
           </div>
         </section>
@@ -222,67 +378,36 @@ export default function SubscriptionPage() {
               <p className="font-black text-sky-500">Current Plan</p>
               <h2 className="mt-2 text-3xl font-black">현재 구독 상태</h2>
               <p className="mt-3 text-slate-500">
-                현재 계정에 연결된 구독 정보를 확인합니다.
+                웹 계정과 연결된 앱 구독 정보를 기준으로 표시합니다.
               </p>
             </div>
 
             <div className="rounded-3xl bg-slate-50 px-6 py-5">
               <p className="text-sm font-black text-slate-400">현재 플랜</p>
-              <p className="mt-2 text-2xl font-black capitalize">
-                {currentPlan === "free" ? "무료 이용중" : currentPlan}
+              <p className="mt-2 text-2xl font-black">
+                {currentPlanLabel(currentPlan)}
               </p>
             </div>
           </div>
         </section>
 
-        <div className="mt-8 flex justify-center">
-          <div className="inline-flex rounded-2xl bg-white p-1.5 shadow-lg shadow-sky-100">
-            <button
-              type="button"
-              onClick={() => setBillingCycle("monthly")}
-              className={`rounded-xl px-6 py-3 text-sm font-black transition ${
-                billingCycle === "monthly"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              월간
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setBillingCycle("yearly")}
-              className={`rounded-xl px-6 py-3 text-sm font-black transition ${
-                billingCycle === "yearly"
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-500 hover:bg-slate-50"
-              }`}
-            >
-              연간
-            </button>
-          </div>
-        </div>
-
-        {billingCycle === "yearly" && (
-          <p className="mt-4 text-center font-black text-emerald-600">
-            {yearlySavingText}
-          </p>
-        )}
-
-        <section className="mt-8 grid gap-6 lg:grid-cols-3">
-          {plans.map((plan) => {
+        <section className="mt-8 grid gap-6 xl:grid-cols-3">
+          {PLANS.map((plan) => {
             const Icon = plan.icon;
-            const price =
-              billingCycle === "monthly"
-                ? plan.monthlyPrice
-                : plan.yearlyPrice;
-            const isSelected = selectedPlan === plan.id;
+            const selectedPackageId = selectedPackages[plan.id];
+            const selectedPackage =
+              plan.packages.find(
+                (packageOption) =>
+                  packageOption.id === selectedPackageId
+              ) || plan.packages[1];
+
             const isCurrent = currentPlan === plan.id;
+            const isSelected = selectedPlan === plan.id;
 
             return (
               <article
                 key={plan.id}
-                className={`relative rounded-[32px] border p-7 shadow-xl shadow-sky-100 transition hover:-translate-y-1 md:p-8 ${plan.cardClass}`}
+                className={`relative flex h-full flex-col rounded-[32px] border p-7 shadow-xl shadow-sky-100 transition hover:-translate-y-1 md:p-8 ${plan.cardClass}`}
               >
                 {plan.badge && (
                   <span className="absolute right-6 top-6 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white">
@@ -297,18 +422,16 @@ export default function SubscriptionPage() {
                 </div>
 
                 <h2 className="mt-6 text-3xl font-black">{plan.name}</h2>
-                <p className="mt-3 min-h-14 leading-7 text-slate-500">
+
+                <p
+                  className={`mt-3 min-h-14 leading-7 ${
+                    plan.id === "basic"
+                      ? "text-white/60"
+                      : "text-slate-500"
+                  }`}
+                >
                   {plan.subtitle}
                 </p>
-
-                <div className="mt-6">
-                  <span className="text-4xl font-black">
-                    ₩{formatPrice(price)}
-                  </span>
-                  <span className="ml-2 font-bold text-slate-400">
-                    / {billingCycle === "monthly" ? "월" : "년"}
-                  </span>
-                </div>
 
                 <div className="mt-7 space-y-3">
                   {plan.features.map((feature) => (
@@ -316,31 +439,216 @@ export default function SubscriptionPage() {
                       key={feature}
                       className="flex items-start gap-3"
                     >
-                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      <div
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          plan.id === "basic"
+                            ? "bg-white/10"
+                            : "bg-emerald-100"
+                        }`}
+                      >
+                        <Check
+                          className={`h-3.5 w-3.5 ${
+                            plan.id === "basic"
+                              ? "text-cyan-300"
+                              : "text-emerald-600"
+                          }`}
+                        />
                       </div>
-                      <p className="text-sm font-bold leading-6 text-slate-600">
+
+                      <p
+                        className={`text-sm font-bold leading-6 ${
+                          plan.id === "basic"
+                            ? "text-white/80"
+                            : "text-slate-600"
+                        }`}
+                      >
                         {feature}
                       </p>
                     </div>
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleSelectPlan(plan)}
-                  disabled={isCurrent}
-                  className={`mt-8 w-full rounded-2xl px-5 py-4 font-black shadow-lg transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none ${plan.buttonClass}`}
-                >
-                  {isCurrent
-                    ? "현재 이용중"
-                    : isSelected
-                      ? "앱에서 구독하기"
-                      : `${plan.name} 선택`}
-                </button>
+                <div className="mt-8 grid grid-cols-3 gap-2">
+                  {plan.packages.map((packageOption) => {
+                    const active =
+                      selectedPackageId === packageOption.id;
+
+                    return (
+                      <button
+                        key={packageOption.id}
+                        type="button"
+                        onClick={() =>
+                          selectPackage(plan.id, packageOption.id)
+                        }
+                        className={`relative rounded-2xl border px-2 py-4 text-center transition ${
+                          active
+                            ? plan.id === "basic"
+                              ? "border-cyan-300 bg-white/10"
+                              : "border-violet-400 bg-violet-50"
+                            : plan.id === "basic"
+                              ? "border-white/10 bg-white/5 hover:bg-white/10"
+                              : "border-slate-200 bg-white/70 hover:bg-white"
+                        }`}
+                      >
+                        {packageOption.badge && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-violet-600 px-2 py-1 text-[9px] font-black text-white">
+                            {packageOption.badge}
+                          </span>
+                        )}
+
+                        <p className="text-xs font-black opacity-60">
+                          {packageOption.label}
+                        </p>
+
+                        <p className="mt-2 text-sm font-black">
+                          {packageOption.price}
+                        </p>
+
+                        {packageOption.monthlyCalc && (
+                          <p className="mt-1 text-[10px] font-bold opacity-50">
+                            {packageOption.monthlyCalc}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-auto pt-8">
+                  <div className="mb-4 text-center">
+                    <p className="text-sm font-black opacity-50">
+                      선택한 상품
+                    </p>
+                    <p className="mt-1 text-3xl font-black">
+                      {selectedPackage.price}
+                    </p>
+                    <p className="mt-1 text-sm font-bold opacity-50">
+                      {selectedPackage.label} 자동 갱신 구독
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPlan(plan)}
+                    disabled={isCurrent}
+                    className={`w-full rounded-2xl px-5 py-4 font-black shadow-lg transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none ${plan.buttonClass}`}
+                  >
+                    {isCurrent
+                      ? "현재 이용중"
+                      : isSelected
+                        ? "앱에서 결제하기"
+                        : `${plan.name} 선택`}
+                  </button>
+                </div>
               </article>
             );
           })}
+        </section>
+
+        <section className="mt-8 rounded-[32px] bg-white p-6 shadow-xl shadow-sky-100 md:p-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100">
+                <Clover className="h-6 w-6 text-emerald-600" />
+              </div>
+
+              <div>
+                <p className="font-black text-emerald-600">Clover Shop</p>
+                <h2 className="mt-1 text-3xl font-black">클로버 충전</h2>
+              </div>
+            </div>
+
+            <p className="mt-4 leading-8 text-slate-500">
+              클로버를 충전해서 프로필 부스터와 슈퍼라이크로 교환할 수
+              있습니다.
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {CLOVER_PACKS.map((pack) => (
+              <button
+                key={pack.id}
+                type="button"
+                onClick={() => handleCloverPurchase(pack)}
+                className={`relative rounded-3xl border p-6 text-left transition hover:-translate-y-1 ${
+                  pack.highlight
+                    ? "border-rose-300 bg-rose-50 ring-2 ring-rose-100"
+                    : "border-slate-200 bg-slate-50 hover:bg-white"
+                }`}
+              >
+                {pack.badge && (
+                  <span
+                    className={`absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-black text-white ${
+                      pack.highlight ? "bg-rose-500" : "bg-slate-800"
+                    }`}
+                  >
+                    {pack.badge}
+                  </span>
+                )}
+
+                <p className="text-3xl">🍀</p>
+                <p className="mt-4 text-2xl font-black">× {pack.count}</p>
+                <p className="mt-2 font-black text-slate-500">
+                  {pack.price}
+                </p>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-[32px] bg-white p-6 shadow-xl shadow-violet-100 md:p-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100">
+              <Rocket className="h-6 w-6 text-violet-600" />
+            </div>
+
+            <div>
+              <p className="font-black text-violet-500">Item Exchange</p>
+              <h2 className="mt-1 text-3xl font-black">아이템 교환</h2>
+            </div>
+          </div>
+
+          <div className="mt-7 grid gap-5 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleExchangeItem("프로필 부스터", 1)}
+              className="rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-6 text-left transition hover:-translate-y-1"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100">
+                  <Zap className="h-6 w-6 text-violet-600" />
+                </div>
+                <span className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">
+                  1 🍀
+                </span>
+              </div>
+
+              <h3 className="mt-5 text-2xl font-black">프로필 부스터</h3>
+              <p className="mt-3 leading-7 text-slate-500">
+                일정 시간 동안 내 프로필의 노출 기회를 높입니다.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleExchangeItem("슈퍼라이크", 2)}
+              className="rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-6 text-left transition hover:-translate-y-1"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100">
+                  <Star className="h-6 w-6 text-sky-600" />
+                </div>
+                <span className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">
+                  2 🍀
+                </span>
+              </div>
+
+              <h3 className="mt-5 text-2xl font-black">슈퍼라이크</h3>
+              <p className="mt-3 leading-7 text-slate-500">
+                상대방에게 더 강하게 관심을 표현할 수 있습니다.
+              </p>
+            </button>
+          </div>
         </section>
 
         <section className="mt-8 rounded-[32px] bg-white p-6 shadow-xl shadow-violet-100 md:p-8">
@@ -354,12 +662,13 @@ export default function SubscriptionPage() {
               </div>
 
               <h2 className="mt-3 text-3xl font-black">
-                결제와 구독 변경은 앱에서
+                실제 결제와 복원은 앱에서
               </h2>
 
               <p className="mt-3 max-w-2xl leading-8 text-slate-500">
-                실제 결제, 구독 변경, 해지는 Apple App Store 또는
-                Google Play의 인앱결제를 통해 처리됩니다.
+                구독과 클로버 결제는 Apple App Store 또는 Google
+                Play의 인앱결제로 진행됩니다. 구독은 취소하지 않는 한
+                선택한 기간마다 자동 갱신됩니다.
               </p>
             </div>
 
@@ -374,7 +683,7 @@ export default function SubscriptionPage() {
                   isRestoring ? "animate-spin" : ""
                 }`}
               />
-              구독 복원 안내
+              구매 복원 안내
             </button>
           </div>
         </section>
