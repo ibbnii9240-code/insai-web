@@ -27,7 +27,6 @@ type MenuItem = {
   href: string;
   color: string;
   badge?: string;
-  disabled?: boolean;
 };
 
 function providerLabel(provider?: string) {
@@ -116,8 +115,7 @@ export default function MyPage() {
       desc: "Bronze, Silver, Gold 플랜 관리",
       href: "/subscription",
       color: "text-emerald-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
     {
       icon: Users,
@@ -125,8 +123,7 @@ export default function MyPage() {
       desc: "친구와 팔로우 관계 관리",
       href: "/friends",
       color: "text-blue-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
     {
       icon: Heart,
@@ -134,8 +131,7 @@ export default function MyPage() {
       desc: "좋아요와 매칭 내역 확인",
       href: "/likes",
       color: "text-pink-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
     {
       icon: Globe2,
@@ -143,8 +139,7 @@ export default function MyPage() {
       desc: "국가와 언어 환경 설정",
       href: "/settings/language",
       color: "text-cyan-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
     {
       icon: Bell,
@@ -152,8 +147,7 @@ export default function MyPage() {
       desc: "문의, 신고, 채팅 알림 관리",
       href: "/settings/notifications",
       color: "text-amber-500",
-      badge: "준비중",
-      disabled: true,
+      badge: "운영",
     },
   ];
 
@@ -287,21 +281,19 @@ export default function MyPage() {
           {menuItems.map((item) => {
             const Icon = item.icon;
 
-            const content = (
-              <>
+            return (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="rounded-3xl bg-white p-7 shadow-lg shadow-sky-100 transition hover:-translate-y-1 hover:shadow-xl"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
                     <Icon className={`h-7 w-7 ${item.color}`} />
                   </div>
 
                   {item.badge && (
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${
-                        item.disabled
-                          ? "bg-slate-100 text-slate-400"
-                          : "bg-violet-50 text-violet-500"
-                      }`}
-                    >
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-black text-violet-500">
                       {item.badge}
                     </span>
                   )}
@@ -310,34 +302,9 @@ export default function MyPage() {
                 <h2 className="mt-5 text-2xl font-black">{item.title}</h2>
                 <p className="mt-3 leading-7 text-slate-500">{item.desc}</p>
 
-                <span
-                  className={`mt-5 inline-block font-black ${
-                    item.disabled ? "text-slate-300" : "text-violet-500"
-                  }`}
-                >
-                  {item.disabled ? "준비 중" : "바로가기 →"}
+                <span className="mt-5 inline-block font-black text-violet-500">
+                  바로가기 →
                 </span>
-              </>
-            );
-
-            if (item.disabled) {
-              return (
-                <div
-                  key={item.title}
-                  className="rounded-3xl bg-white p-7 opacity-80 shadow-lg shadow-sky-100"
-                >
-                  {content}
-                </div>
-              );
-            }
-
-            return (
-              <Link
-                key={item.title}
-                href={item.href}
-                className="rounded-3xl bg-white p-7 shadow-lg shadow-sky-100 transition hover:-translate-y-1 hover:shadow-xl"
-              >
-                {content}
               </Link>
             );
           })}
