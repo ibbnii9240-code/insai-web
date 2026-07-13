@@ -24,6 +24,13 @@ type CreateReportBody = {
   chatRoomId?: string;
   messageId?: string;
 
+  postText?: string;
+  postImages?: string[];
+  postAuthorId?: string;
+  postAuthorName?: string;
+  postAuthorAvatar?: string;
+  postCreatedAt?: string | null;
+
   userId?: string;
   appUserId?: string;
   webUserId?: string;
@@ -33,37 +40,36 @@ type CreateReportBody = {
 };
 
 function normalizeText(value: unknown) {
-  if (typeof value !== "string") return "";
-  return value.trim();
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeLower(value: unknown) {
   return normalizeText(value).toLowerCase();
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
 function normalizeSource(value: unknown) {
   const source = normalizeText(value).toLowerCase();
-
   if (source === "app") return "app";
   if (source === "web") return "web";
-
   return source || "app";
 }
 
 function normalizeStatus(value: unknown): ReportStatus {
   const status = normalizeText(value);
-
   if (status === "확인중") return "확인중";
   if (status === "완료") return "완료";
   if (status === "반려") return "반려";
-
   return "대기";
 }
 
 function serializeReport(report: any) {
   return {
     id: String(report._id),
-
     appReportId: report.appReportId || "",
 
     reporterName: report.reporterName || "",
@@ -80,6 +86,13 @@ function serializeReport(report: any) {
     postId: report.postId || "",
     chatRoomId: report.chatRoomId || "",
     messageId: report.messageId || "",
+
+    postText: report.postText || "",
+    postImages: Array.isArray(report.postImages) ? report.postImages : [],
+    postAuthorId: report.postAuthorId || "",
+    postAuthorName: report.postAuthorName || "",
+    postAuthorAvatar: report.postAuthorAvatar || "",
+    postCreatedAt: report.postCreatedAt || null,
 
     status: normalizeStatus(report.status),
     adminNote: report.adminNote || "",
@@ -99,11 +112,7 @@ function serializeReport(report: any) {
 async function getLoggedInUser(request: Request) {
   try {
     const authUser = getAuthUserFromRequest(request);
-
-    if (!authUser?.userId) {
-      return null;
-    }
-
+    if (!authUser?.userId) return null;
     return await User.findById(authUser.userId).lean();
   } catch {
     return null;
@@ -169,12 +178,8 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Report list error:", error);
-
     return NextResponse.json(
-      {
-        ok: false,
-        message: "신고 목록을 불러오지 못했습니다.",
-      },
+      { ok: false, message: "신고 목록을 불러오지 못했습니다." },
       { status: 500 }
     );
   }
@@ -237,15 +242,21 @@ export async function POST(request: Request) {
     const chatRoomId = normalizeText(body.chatRoomId);
     const messageId = normalizeText(body.messageId);
 
+    const postText = normalizeText(body.postText);
+    const postImages = normalizeStringArray(body.postImages);
+    const postAuthorId = normalizeText(body.postAuthorId);
+    const postAuthorName = normalizeText(body.postAuthorName);
+    const postAuthorAvatar = normalizeText(body.postAuthorAvatar);
+    const parsedPostCreatedAt = body.postCreatedAt
+      ? new Date(body.postCreatedAt)
+      : null;
+
     const source = normalizeSource(body.source);
     const appVersion = normalizeText(body.appVersion);
 
     if (reason.length < 2) {
       return NextResponse.json(
-        {
-          ok: false,
-          message: "신고 내용을 2글자 이상 입력해주세요.",
-        },
+        { ok: false, message: "신고 내용을 2글자 이상 입력해주세요." },
         { status: 400 }
       );
     }
@@ -267,6 +278,17 @@ export async function POST(request: Request) {
       postId,
       chatRoomId,
       messageId,
+
+      postText,
+      postImages,
+      postAuthorId,
+      postAuthorName,
+      postAuthorAvatar,
+      postCreatedAt:
+        parsedPostCreatedAt &&
+        !Number.isNaN(parsedPostCreatedAt.getTime())
+          ? parsedPostCreatedAt
+          : null,
 
       status: "대기",
       adminNote: "",
@@ -291,12 +313,8 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Report create error:", error);
-
     return NextResponse.json(
-      {
-        ok: false,
-        message: "신고 저장 중 오류가 발생했습니다.",
-      },
+      { ok: false, message: "신고 저장 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

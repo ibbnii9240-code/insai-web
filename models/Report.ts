@@ -22,6 +22,13 @@ export type ReportDocument = {
   chatRoomId?: string;
   messageId?: string;
 
+  postText?: string;
+  postImages?: string[];
+  postAuthorId?: string;
+  postAuthorName?: string;
+  postAuthorAvatar?: string;
+  postCreatedAt?: Date | null;
+
   status: ReportStatus;
   adminNote?: string;
   processedAt?: Date | null;
@@ -113,6 +120,36 @@ const ReportSchema = new Schema<ReportDocument>(
       index: true,
     },
 
+    postText: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    postImages: {
+      type: [String],
+      default: [],
+    },
+    postAuthorId: {
+      type: String,
+      trim: true,
+      default: "",
+      index: true,
+    },
+    postAuthorName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    postAuthorAvatar: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    postCreatedAt: {
+      type: Date,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: ["대기", "확인중", "완료", "반려"],
@@ -174,8 +211,6 @@ ReportSchema.index({ userId: 1, createdAt: -1 });
 ReportSchema.index({ reporterId: 1, createdAt: -1 });
 ReportSchema.index({ reporterEmail: 1, createdAt: -1 });
 ReportSchema.index({ postId: 1, createdAt: -1 });
-ReportSchema.index({ chatRoomId: 1, createdAt: -1 });
-ReportSchema.index({ messageId: 1, createdAt: -1 });
 
 const Report =
   models.Report || model<ReportDocument>("Report", ReportSchema);
