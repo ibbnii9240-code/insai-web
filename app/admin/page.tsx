@@ -8,32 +8,115 @@ import Report from "@/models/Report";
 import User from "@/models/User";
 import AdminContactActions from "@/components/AdminContactActions";
 import {
+  Activity,
+  Ban,
+  Blocks,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Flag,
+  Globe2,
+  Heart,
   Home,
   LayoutDashboard,
-  Flag,
-  MessageSquare,
-  Users,
-  FileText,
-  Ban,
-  DollarSign,
-  CreditCard,
-  TrendingUp,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
-  Clock,
   LockKeyhole,
-  UserCog,
   LogOut,
-  UserPlus,
-  Building2,
-  Crown,
-  BriefcaseBusiness,
-  KeyRound,
-  Activity,
+  MessageCircle,
+  MessageSquare,
+  MessagesSquare,
+  ShieldCheck,
+  TrendingUp,
+  UserCheck,
+  UserCog,
+  Users,
+  XCircle,
 } from "lucide-react";
 
 type ContactStatus = "대기" | "확인중" | "완료";
+
+type DashboardStats = {
+  users: {
+    total: number;
+    onboardingCompleted: number;
+    onboardingRate: number;
+    newToday: number;
+    newThisMonth: number;
+  };
+  content: {
+    posts: number;
+    postsToday: number;
+    comments: number;
+    likes: number;
+  };
+  relationships: {
+    follows: number;
+    matches: number;
+    blocks: number;
+  };
+  chats: {
+    total: number;
+    community: number;
+    dating: number;
+  };
+  reports: {
+    pending: number;
+    reviewing: number;
+    completed: number;
+    rejected: number;
+    unresolved: number;
+  };
+  countries: Array<{
+    countryCode: string;
+    count: number;
+  }>;
+};
+
+type RecentAppUser = {
+  id: string;
+  username?: string | null;
+  name?: string | null;
+  email?: string | null;
+  avatar?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  language?: string | null;
+  onboardingCompleted: boolean;
+  createdAt: string;
+};
+
+const EMPTY_STATS: DashboardStats = {
+  users: {
+    total: 0,
+    onboardingCompleted: 0,
+    onboardingRate: 0,
+    newToday: 0,
+    newThisMonth: 0,
+  },
+  content: {
+    posts: 0,
+    postsToday: 0,
+    comments: 0,
+    likes: 0,
+  },
+  relationships: {
+    follows: 0,
+    matches: 0,
+    blocks: 0,
+  },
+  chats: {
+    total: 0,
+    community: 0,
+    dating: 0,
+  },
+  reports: {
+    pending: 0,
+    reviewing: 0,
+    completed: 0,
+    rejected: 0,
+    unresolved: 0,
+  },
+  countries: [],
+};
 
 async function logoutAction() {
   "use server";
@@ -54,6 +137,138 @@ function normalizeStatus(status: unknown): ContactStatus {
   return "대기";
 }
 
+function formatKoreanDate(value?: string | Date | null) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+  });
+}
+
+function statusStyle(status: string) {
+  if (
+    status === "완료" ||
+    status === "정상" ||
+    status === "활성" ||
+    status === "온보딩 완료"
+  ) {
+    return "bg-emerald-50 text-emerald-600";
+  }
+
+  if (status === "대기") {
+    return "bg-amber-50 text-amber-600";
+  }
+
+  if (status === "정지" || status === "탈퇴") {
+    return "bg-rose-50 text-rose-600";
+  }
+
+  return "bg-sky-50 text-sky-600";
+}
+
+async function getAppDashboardStats(): Promise<{
+  ok: boolean;
+  stats: DashboardStats;
+  recentUsers: RecentAppUser[];
+  generatedAt: string;
+  message: string;
+}> {
+  const baseUrl = process.env.APP_BACKEND_URL;
+  const secret = process.env.WEB_AUTH_SECRET || "";
+
+  if (!baseUrl) {
+    return {
+      ok: false,
+      stats: EMPTY_STATS,
+      recentUsers: [] as RecentAppUser[],
+      generatedAt: "",
+      message: "APP_BACKEND_URL이 설정되지 않았습니다.",
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `${baseUrl.replace(/\/$/, "")}/admin/dashboard-stats`,
+      {
+        headers: {
+          ...(secret
+            ? {
+                "x-web-auth-secret": secret,
+              }
+            : {}),
+          "ngrok-skip-browser-warning": "69420",
+        },
+        cache: "no-store",
+      }
+    );
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || result?.success === false) {
+      return {
+        ok: false,
+        stats: EMPTY_STATS,
+        recentUsers: [] as RecentAppUser[],
+        generatedAt: "",
+        message:
+          result?.message ||
+          result?.error ||
+          "앱 운영 통계를 불러오지 못했습니다.",
+      };
+    }
+
+    return {
+      ok: true,
+      stats: {
+        ...EMPTY_STATS,
+        ...(result.stats || {}),
+        users: {
+          ...EMPTY_STATS.users,
+          ...(result.stats?.users || {}),
+        },
+        content: {
+          ...EMPTY_STATS.content,
+          ...(result.stats?.content || {}),
+        },
+        relationships: {
+          ...EMPTY_STATS.relationships,
+          ...(result.stats?.relationships || {}),
+        },
+        chats: {
+          ...EMPTY_STATS.chats,
+          ...(result.stats?.chats || {}),
+        },
+        reports: {
+          ...EMPTY_STATS.reports,
+          ...(result.stats?.reports || {}),
+        },
+        countries: Array.isArray(result.stats?.countries)
+          ? result.stats.countries
+          : [],
+      } as DashboardStats,
+      recentUsers: Array.isArray(result.recentUsers)
+        ? result.recentUsers
+        : [],
+      generatedAt: result.generatedAt || "",
+      message: "",
+    };
+  } catch (error) {
+    console.error("Admin dashboard backend fetch error:", error);
+
+    return {
+      ok: false,
+      stats: EMPTY_STATS,
+      recentUsers: [] as RecentAppUser[],
+      generatedAt: "",
+      message: "앱 백엔드 통계 서버에 연결하지 못했습니다.",
+    };
+  }
+}
+
 export default async function AdminPage() {
   const cookieStore = await cookies();
   const isAdmin = cookieStore.get("insai_admin_auth")?.value;
@@ -67,26 +282,35 @@ export default async function AdminPage() {
 
   await connectDB();
 
-  const contacts = await Contact.find()
-    .sort({ createdAt: -1 })
-    .limit(50)
-    .lean();
+  const [
+    contacts,
+    reportDocs,
+    webUserDocs,
+    totalWebUserCount,
+    activeWebUserCount,
+    suspendedWebUserCount,
+    pendingReportCount,
+    pendingInquiryCount,
+    appDashboard,
+  ] = await Promise.all([
+    Contact.find().sort({ createdAt: -1 }).limit(50).lean(),
+    Report.find().sort({ createdAt: -1 }).limit(5).lean(),
+    User.find().sort({ createdAt: -1 }).limit(5).lean(),
+    User.countDocuments(),
+    User.countDocuments({ status: "active" }),
+    User.countDocuments({ status: "suspended" }),
+    Report.countDocuments({
+      status: { $in: ["대기", "확인중"] },
+    }),
+    Contact.countDocuments({
+      status: { $in: ["대기", "확인중"] },
+    }),
+    getAppDashboardStats(),
+  ]);
 
-  const reportDocs = await Report.find()
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean();
+  const appStats = appDashboard.stats;
 
-  const userDocs = await User.find()
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean();
-
-  const totalUserCount = await User.countDocuments();
-  const activeUserCount = await User.countDocuments({ status: "active" });
-  const suspendedUserCount = await User.countDocuments({ status: "suspended" });
-
-  const users = userDocs.map((user) => ({
+  const webUsers = webUserDocs.map((user: any) => ({
     id: String(user._id),
     nickname: user.nickname || user.name || "이름 없음",
     email: user.email || "이메일 없음",
@@ -96,32 +320,30 @@ export default async function AdminPage() {
         : user.status === "deleted"
           ? "탈퇴"
           : "정상",
-    plan: user.subscriptionPlan || "Free",
     provider: user.provider || "-",
-    createdAt: user.createdAt
-      ? new Date(user.createdAt).toLocaleString("ko-KR")
-      : "",
+    appUserId: user.appUserId || "",
+    createdAt: formatKoreanDate(user.createdAt),
   }));
 
-  const reports = reportDocs.map((report) => ({
+  const reports = reportDocs.map((report: any) => ({
     id: String(report._id),
     type: report.category || "신고",
-    target: report.targetUserName || "대상 없음",
-    targetId: report.targetUserId || "",
-    reporter: report.reporterName || "신고자 없음",
-    reporterEmail: report.reporterEmail || "",
-    reason: report.reason || "",
+    target:
+      report.reportedNickname ||
+      report.targetUserName ||
+      report.reportedUserId ||
+      "대상 없음",
+    reporter:
+      report.reporterName ||
+      report.reporterEmail ||
+      report.reporterId ||
+      "신고자 없음",
+    reason: report.reason || report.message || "",
     status: report.status || "대기",
-    createdAt: report.createdAt
-      ? new Date(report.createdAt).toLocaleString("ko-KR")
-      : "",
+    createdAt: formatKoreanDate(report.createdAt),
   }));
 
-  const pendingReportCount = reports.filter(
-    (item) => item.status === "대기" || item.status === "확인중"
-  ).length;
-
-  const inquiries = contacts.map((contact) => ({
+  const inquiries = contacts.map((contact: any) => ({
     id: String(contact._id),
     name: contact.name || "이름 없음",
     email: contact.email || "이메일 없음",
@@ -129,164 +351,104 @@ export default async function AdminPage() {
     message: contact.message || "",
     status: normalizeStatus(contact.status),
     adminReply: contact.adminReply || "",
-    createdAt: contact.createdAt
-      ? new Date(contact.createdAt).toLocaleString("ko-KR")
-      : "",
-    repliedAt: contact.repliedAt
-      ? new Date(contact.repliedAt).toLocaleString("ko-KR")
-      : "",
+    createdAt: formatKoreanDate(contact.createdAt),
+    repliedAt: formatKoreanDate(contact.repliedAt),
   }));
 
-  const pendingInquiryCount = inquiries.filter(
-    (item) => item.status === "대기" || item.status === "확인중"
-  ).length;
-
-  const stats = [
+  const overviewStats = [
     {
-      title: "총 유저",
-      value: String(totalUserCount),
-      desc: `정상 ${activeUserCount}명 / 정지 ${suspendedUserCount}명`,
+      title: "전체 앱 유저",
+      value: String(appStats.users.total),
+      desc: `온보딩 완료 ${appStats.users.onboardingCompleted}명`,
       icon: Users,
       color: "text-sky-500",
     },
     {
+      title: "이번 달 가입",
+      value: String(appStats.users.newThisMonth),
+      desc: `오늘 신규 ${appStats.users.newToday}명`,
+      icon: UserCheck,
+      color: "text-emerald-500",
+    },
+    {
       title: "대기 신고",
       value: String(pendingReportCount),
-      desc: "검토 필요",
+      desc: "웹 관리자 검토 필요",
       icon: Flag,
       color: "text-rose-500",
     },
     {
-      title: "문의",
+      title: "미처리 문의",
       value: String(pendingInquiryCount),
-      desc: "미처리 문의",
+      desc: "대기 및 확인중",
       icon: MessageSquare,
       color: "text-violet-500",
     },
-    {
-      title: "월 매출",
-      value: "₩2,840,000",
-      desc: "이번 달 예상 매출",
-      icon: DollarSign,
-      color: "text-emerald-500",
-      ownerOnly: true,
-    },
   ];
 
-  const revenue = [
+  const activityStats = [
     {
-      title: "구독 매출",
-      value: "₩2,140,000",
-      desc: "App Store / Play Store 구독",
-      icon: CreditCard,
+      title: "전체 게시물",
+      value: appStats.content.posts,
+      desc: `오늘 ${appStats.content.postsToday}개 생성`,
+      icon: FileText,
+      color: "text-sky-500",
     },
     {
-      title: "활성 구독자",
-      value: "186명",
-      desc: "Bronze / Silver / Gold",
-      icon: Users,
+      title: "전체 좋아요",
+      value: appStats.content.likes,
+      desc: "게시물 누적 좋아요",
+      icon: Heart,
+      color: "text-pink-500",
     },
     {
-      title: "전월 대비",
-      value: "+18.4%",
-      desc: "월간 성장률",
-      icon: TrendingUp,
-    },
-  ];
-
-  const staffMembers = [
-    {
-      name: "김민준",
-      email: "staff@insai.app",
-      role: "Staff",
-      permission: "신고 / 문의 / 유저 판결",
-      status: "활성",
-    },
-    {
-      name: "이지아",
-      email: "manager@insai.app",
-      role: "Manager",
-      permission: "운영 관리 / 직원 검토",
-      status: "활성",
-    },
-    {
-      name: "박서윤",
-      email: "finance@insai.app",
-      role: "Finance",
-      permission: "정산 확인 / 매출 보조",
-      status: "대기",
-    },
-  ];
-
-  const organization = [
-    {
-      icon: Crown,
-      title: "Owner",
-      name: "인우",
-      desc: "전체 권한 / 매출 / 직원 관리",
-      color: "text-emerald-500",
-    },
-    {
-      icon: BriefcaseBusiness,
-      title: "Manager",
-      name: "운영 매니저",
-      desc: "신고 처리 / 직원 업무 관리",
-      color: "text-blue-500",
-    },
-    {
-      icon: ShieldCheck,
-      title: "Staff",
-      name: "운영 직원",
-      desc: "문의 / 신고 / 유저 판결",
+      title: "전체 댓글",
+      value: appStats.content.comments,
+      desc: "게시물 누적 댓글",
+      icon: MessageCircle,
       color: "text-violet-500",
     },
     {
-      icon: DollarSign,
-      title: "Finance",
-      name: "정산 담당",
-      desc: "매출 확인 / 구독 리포트",
-      color: "text-emerald-500",
+      title: "팔로우 관계",
+      value: appStats.relationships.follows,
+      desc: "누적 팔로우 연결",
+      icon: TrendingUp,
+      color: "text-cyan-500",
+    },
+    {
+      title: "소개팅 매칭",
+      value: appStats.relationships.matches,
+      desc: "누적 매칭 수",
+      icon: Users,
+      color: "text-rose-500",
+    },
+    {
+      title: "전체 채팅방",
+      value: appStats.chats.total,
+      desc: `커뮤니티 ${appStats.chats.community} / 소개팅 ${appStats.chats.dating}`,
+      icon: MessagesSquare,
+      color: "text-blue-500",
+    },
+    {
+      title: "차단 관계",
+      value: appStats.relationships.blocks,
+      desc: "누적 차단 수",
+      icon: Blocks,
+      color: "text-slate-500",
+    },
+    {
+      title: "운영 미처리 신고",
+      value: appStats.reports.unresolved,
+      desc: `대기 ${appStats.reports.pending} / 확인중 ${appStats.reports.reviewing}`,
+      icon: ShieldCheck,
+      color: "text-amber-500",
     },
   ];
 
-  const ownerMenus = [
-    "매출 및 수익 통계",
-    "구독자 관리",
-    "직원 계정 생성",
-    "직원 관리",
-    "회사 조직도",
-    "전체 운영 로그",
-  ];
-
-  const staffMenus = [
-    "문의 관리",
-    "신고 관리",
-    "유저 판결",
-    "게시물 검토",
-  ];
-
-  const visibleStats = stats.filter((item) => !item.ownerOnly || isOwner);
-
-  const statusStyle = (status: string) => {
-    if (status === "완료" || status === "정상" || status === "활성") {
-      return "bg-emerald-50 text-emerald-600";
-    }
-
-    if (status === "대기") {
-      return "bg-amber-50 text-amber-600";
-    }
-
-    if (status === "정지") {
-      return "bg-rose-50 text-rose-600";
-    }
-
-    return "bg-sky-50 text-sky-600";
-  };
-
   return (
     <main className="min-h-screen bg-[#F8FBFF] text-slate-900">
-      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-6 md:py-5">
           <Link href="/" className="flex items-center gap-3">
             <Image
               src="/insai-logo.png"
@@ -296,14 +458,14 @@ export default async function AdminPage() {
               className="rounded-xl"
               priority
             />
-            <span className="text-3xl font-extrabold tracking-tight">
+            <span className="text-2xl font-extrabold tracking-tight md:text-3xl">
               insai
             </span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <span
-              className={`rounded-full px-4 py-2 text-sm font-black ${
+              className={`hidden rounded-full px-4 py-2 text-sm font-black sm:inline-flex ${
                 isOwner
                   ? "bg-emerald-50 text-emerald-600"
                   : "bg-violet-50 text-violet-500"
@@ -315,40 +477,50 @@ export default async function AdminPage() {
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 rounded-2xl bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-600"
+                className="inline-flex items-center gap-2 rounded-2xl bg-rose-500 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-rose-600 md:px-5"
               >
                 <LogOut className="h-4 w-4" />
-                로그아웃
+                <span className="hidden sm:inline">로그아웃</span>
               </button>
             </form>
 
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 md:px-5"
             >
               <Home className="h-4 w-4" />
-              홈으로
+              <span className="hidden sm:inline">홈으로</span>
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-6 py-12">
+      <section className="mx-auto max-w-7xl px-5 py-10 md:px-6 md:py-12">
         <div>
           <p className="font-black text-sky-500">Admin Dashboard</p>
           <h1 className="mt-3 text-4xl font-black md:text-6xl">
-            insai 관리자 페이지
+            insai 운영센터
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-            {isOwner
-              ? "오너 계정입니다. 문의, 신고, 유저, 게시물, 직원, 조직도, 매출과 구독 수익까지 전체 관리할 수 있습니다."
-              : "직원 계정입니다. 문의, 신고, 유저 판결, 게시물 검토 중심으로 운영 관리할 수 있습니다."}
+          <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+            앱 PostgreSQL과 웹 MongoDB 데이터를 함께 불러와 실제 운영 현황을
+            표시합니다. 신고와 문의 관리 기능은 기존 구조를 그대로 유지했습니다.
           </p>
         </div>
 
-        <div className="mt-8 rounded-[28px] bg-white p-7 shadow-lg shadow-sky-100">
+        {!appDashboard.ok && (
+          <div className="mt-7 rounded-3xl bg-rose-50 p-6">
+            <p className="font-black text-rose-600">
+              앱 통계 연결 오류
+            </p>
+            <p className="mt-2 text-sm font-bold leading-6 text-rose-500">
+              {appDashboard.message}
+            </p>
+          </div>
+        )}
+
+        <div className="mt-8 rounded-[28px] bg-white p-6 shadow-lg shadow-sky-100 md:p-7">
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
               {isOwner ? (
                 <UserCog className="h-7 w-7 text-emerald-500" />
               ) : (
@@ -362,32 +534,27 @@ export default async function AdminPage() {
               </h2>
               <p className="mt-3 leading-7 text-slate-600">
                 {isOwner
-                  ? "오너는 수익, 구독, 직원 계정, 회사 조직도, 운영 로그까지 전체 접근 가능합니다."
-                  : "직원은 매출/수익/직원 관리 정보 없이 운영 업무만 접근 가능합니다."}
+                  ? "오너는 앱 활동 통계, 신고, 문의, 유저 관리 영역을 모두 확인할 수 있습니다."
+                  : "직원은 신고, 문의, 유저 운영 업무를 중심으로 접근합니다."}
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                {(isOwner ? ownerMenus : staffMenus).map((menu) => (
-                  <span
-                    key={menu}
-                    className="rounded-full bg-slate-50 px-4 py-2 text-sm font-bold text-slate-600"
-                  >
-                    {menu}
-                  </span>
-                ))}
-              </div>
+              {appDashboard.generatedAt && (
+                <p className="mt-3 text-xs font-bold text-slate-400">
+                  앱 통계 갱신: {formatKoreanDate(appDashboard.generatedAt)}
+                </p>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {visibleStats.map((item) => {
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {overviewStats.map((item) => {
             const Icon = item.icon;
 
             return (
               <div
                 key={item.title}
-                className="rounded-3xl bg-white p-7 shadow-lg shadow-sky-100"
+                className="rounded-3xl bg-white p-6 shadow-lg shadow-sky-100 md:p-7"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100 p-3">
@@ -408,220 +575,120 @@ export default async function AdminPage() {
           })}
         </div>
 
-        {isOwner && (
-          <>
-            <section className="mt-8">
-              <div className="grid gap-6 lg:grid-cols-3">
-                {revenue.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      key={item.title}
-                      className="rounded-3xl bg-white p-7 shadow-lg shadow-violet-100"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-50 to-sky-100">
-                          <Icon className="h-7 w-7 text-emerald-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-500">
-                            {item.title}
-                          </p>
-                          <p className="mt-1 text-2xl font-black">
-                            {item.value}
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-slate-400">
-                            {item.desc}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="mt-12 rounded-[32px] bg-white p-8 shadow-xl shadow-emerald-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-black text-emerald-500">Staff Management</p>
-                  <h2 className="mt-2 text-3xl font-black">직원 관리</h2>
-                  <p className="mt-4 leading-8 text-slate-600">
-                    오너가 직접 직원 계정을 생성하고, 권한을 설정하고, 직원 상태를
-                    관리하는 영역입니다.
-                  </p>
-                </div>
-                <UserPlus className="h-9 w-9 text-emerald-500" />
-              </div>
-
-              <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-                <div className="rounded-3xl bg-slate-50 p-6">
-                  <h3 className="text-2xl font-black">직원 계정 생성</h3>
-
-                  <div className="mt-6 grid gap-4">
-                    <input
-                      type="text"
-                      placeholder="직원 이름"
-                      className="rounded-2xl border border-slate-200 bg-white px-5 py-4 outline-none focus:border-violet-400"
-                    />
-
-                    <input
-                      type="email"
-                      placeholder="직원 이메일"
-                      className="rounded-2xl border border-slate-200 bg-white px-5 py-4 outline-none focus:border-violet-400"
-                    />
-
-                    <input
-                      type="password"
-                      placeholder="임시 비밀번호"
-                      className="rounded-2xl border border-slate-200 bg-white px-5 py-4 outline-none focus:border-violet-400"
-                    />
-
-                    <select className="rounded-2xl border border-slate-200 bg-white px-5 py-4 outline-none focus:border-violet-400">
-                      <option>직원 역할 선택</option>
-                      <option>Staff - 신고/문의 처리</option>
-                      <option>Manager - 운영 관리</option>
-                      <option>Finance - 매출/정산 보조</option>
-                    </select>
-
-                    <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 px-6 py-4 font-bold text-white shadow-lg shadow-violet-200">
-                      <UserPlus className="h-5 w-5" />
-                      직원 계정 생성
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-3xl border border-slate-100">
-                  <div className="grid grid-cols-5 bg-slate-50 px-6 py-4 text-sm font-black text-slate-500">
-                    <span>이름</span>
-                    <span>이메일</span>
-                    <span>역할</span>
-                    <span>상태</span>
-                    <span>관리</span>
-                  </div>
-
-                  {staffMembers.map((staff) => (
-                    <div
-                      key={staff.email}
-                      className="grid grid-cols-5 items-center border-t border-slate-100 bg-white px-6 py-5 text-sm"
-                    >
-                      <span className="font-black">{staff.name}</span>
-                      <span className="text-slate-500">{staff.email}</span>
-                      <span className="font-bold text-violet-500">
-                        {staff.role}
-                      </span>
-                      <span>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black ${statusStyle(
-                            staff.status
-                          )}`}
-                        >
-                          {staff.status}
-                        </span>
-                      </span>
-                      <span className="flex gap-2">
-                        <button className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm">
-                          수정
-                        </button>
-                        <button className="rounded-xl bg-rose-500 px-3 py-2 text-xs font-bold text-white">
-                          정지
-                        </button>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="mt-12 rounded-[32px] bg-gradient-to-br from-sky-50 to-violet-50 p-8 shadow-xl shadow-violet-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-black text-violet-500">Company Chart</p>
-                  <h2 className="mt-2 text-3xl font-black">
-                    insai 회사 계보도 / 조직도
-                  </h2>
-                  <p className="mt-4 leading-8 text-slate-600">
-                    오너를 중심으로 운영 매니저, 직원, 정산 담당을 구분해서
-                    회사 구조를 관리할 수 있습니다.
-                  </p>
-                </div>
-                <Building2 className="h-9 w-9 text-violet-500" />
-              </div>
-
-              <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {organization.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      key={item.title}
-                      className="rounded-3xl bg-white p-6 shadow-lg shadow-sky-100"
-                    >
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
-                        <Icon className={`h-7 w-7 ${item.color}`} />
-                      </div>
-
-                      <h3 className="mt-5 text-xl font-black">{item.title}</h3>
-                      <p className="mt-2 font-bold text-slate-700">
-                        {item.name}
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-slate-500">
-                        {item.desc}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="mt-12 rounded-[32px] bg-white p-8 shadow-xl shadow-sky-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-black text-blue-500">Owner Controls</p>
-                  <h2 className="mt-2 text-3xl font-black">오너 전용 권한 설정</h2>
-                </div>
-                <KeyRound className="h-9 w-9 text-blue-500" />
-              </div>
-
-              <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {[
-                  "직원 계정 생성",
-                  "직원 권한 변경",
-                  "직원 정지/삭제",
-                  "직원 활동 로그 확인",
-                  "매출 접근 권한 부여",
-                  "운영 로그 전체 열람",
-                  "관리자 비밀번호 초기화",
-                  "부서/역할 관리",
-                ].map((text) => (
-                  <div
-                    key={text}
-                    className="flex items-center gap-3 rounded-2xl bg-slate-50 p-5 font-bold"
-                  >
-                    <Activity className="h-5 w-5 text-violet-500" />
-                    {text}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-
-        {!isOwner && (
-          <section className="mt-8 rounded-[28px] border border-violet-100 bg-violet-50/60 p-6">
-            <div className="flex items-center gap-3">
-              <LockKeyhole className="h-5 w-5 text-violet-500" />
-              <p className="font-bold text-violet-600">
-                직원 계정은 매출, 수익, 구독자 통계, 직원 관리, 회사 조직도 영역이
-                숨김 처리됩니다.
+        <section className="mt-10 rounded-[32px] bg-white p-6 shadow-xl shadow-violet-100 md:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-violet-500">Live App Metrics</p>
+              <h2 className="mt-2 text-3xl font-black">앱 실제 활동 통계</h2>
+              <p className="mt-3 leading-7 text-slate-500">
+                가짜 매출과 구독 수치를 제거하고 현재 DB에서 계산 가능한
+                실제 수치만 표시합니다.
               </p>
+            </div>
+            <Activity className="h-9 w-9 text-violet-500" />
+          </div>
+
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {activityStats.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <div
+                  key={item.title}
+                  className="rounded-3xl bg-slate-50 p-6"
+                >
+                  <Icon className={`h-7 w-7 ${item.color}`} />
+                  <p className="mt-5 text-sm font-black text-slate-400">
+                    {item.title}
+                  </p>
+                  <p className="mt-2 text-3xl font-black">
+                    {item.value.toLocaleString("ko-KR")}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    {item.desc}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {isOwner && (
+          <section className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-[32px] bg-white p-6 shadow-xl shadow-sky-100 md:p-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-black text-sky-500">Countries</p>
+                  <h2 className="mt-2 text-3xl font-black">국가별 유저</h2>
+                </div>
+                <Globe2 className="h-8 w-8 text-sky-500" />
+              </div>
+
+              <div className="mt-7 space-y-3">
+                {appStats.countries.length === 0 ? (
+                  <div className="rounded-2xl bg-slate-50 p-6 text-center font-bold text-slate-500">
+                    국가 통계가 없습니다.
+                  </div>
+                ) : (
+                  appStats.countries.map((country, index) => (
+                    <div
+                      key={`${country.countryCode}-${index}`}
+                      className="flex items-center justify-between rounded-2xl bg-slate-50 px-5 py-4"
+                    >
+                      <span className="font-black">
+                        {index + 1}. {country.countryCode}
+                      </span>
+                      <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-sky-600">
+                        {country.count.toLocaleString("ko-KR")}명
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-[32px] bg-gradient-to-br from-emerald-50 to-sky-50 p-6 shadow-xl shadow-emerald-100 md:p-8">
+              <p className="font-black text-emerald-600">
+                Account Connection
+              </p>
+              <h2 className="mt-2 text-3xl font-black">
+                웹 계정 연결 현황
+              </h2>
+
+              <div className="mt-7 grid gap-4">
+                <div className="rounded-3xl bg-white p-6">
+                  <p className="text-sm font-black text-slate-400">
+                    전체 웹 계정
+                  </p>
+                  <p className="mt-2 text-3xl font-black">
+                    {totalWebUserCount.toLocaleString("ko-KR")}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-white p-6">
+                  <p className="text-sm font-black text-slate-400">
+                    정상 웹 계정
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-emerald-600">
+                    {activeWebUserCount.toLocaleString("ko-KR")}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-white p-6">
+                  <p className="text-sm font-black text-slate-400">
+                    정지 웹 계정
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-rose-500">
+                    {suspendedWebUserCount.toLocaleString("ko-KR")}
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
         )}
 
         <div className="mt-12 grid gap-8 lg:grid-cols-2">
-          <section className="rounded-[32px] bg-white p-8 shadow-xl shadow-sky-100">
+          <section className="rounded-[32px] bg-white p-6 shadow-xl shadow-sky-100 md:p-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="font-black text-rose-500">Reports</p>
@@ -631,11 +698,11 @@ export default async function AdminPage() {
               <div className="flex items-center gap-3">
                 <Link
                   href="/admin/reports"
-                  className="rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-rose-600"
+                  className="rounded-2xl bg-rose-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-rose-600 md:px-5"
                 >
-                  신고 페이지로 이동
+                  신고 페이지
                 </Link>
-                <Flag className="h-8 w-8 text-rose-400" />
+                <Flag className="hidden h-8 w-8 text-rose-400 sm:block" />
               </div>
             </div>
 
@@ -645,34 +712,24 @@ export default async function AdminPage() {
                   <p className="font-bold text-slate-500">
                     아직 접수된 신고가 없습니다.
                   </p>
-                  <Link
-                    href="/admin/reports"
-                    className="mt-4 inline-flex rounded-xl bg-rose-500 px-4 py-2 text-sm font-bold text-white"
-                  >
-                    신고 관리 페이지 열기
-                  </Link>
                 </div>
               )}
 
               {reports.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-2xl bg-slate-50 p-5"
-                >
+                <div key={item.id} className="rounded-2xl bg-slate-50 p-5">
                   <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-black">{item.type}</p>
-                      <p className="mt-1 text-sm text-slate-500">
+                    <div className="min-w-0">
+                      <p className="truncate font-black">{item.type}</p>
+                      <p className="mt-1 truncate text-sm text-slate-500">
                         대상: {item.target}
                       </p>
-                      {item.createdAt && (
-                        <p className="mt-1 text-xs font-semibold text-slate-400">
-                          접수일: {item.createdAt}
-                        </p>
-                      )}
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        접수일: {item.createdAt}
+                      </p>
                     </div>
+
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${statusStyle(
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${statusStyle(
                         item.status
                       )}`}
                     >
@@ -684,26 +741,18 @@ export default async function AdminPage() {
                     사유: {item.reason}
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      href="/admin/reports"
-                      className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm"
-                    >
-                      상세보기
-                    </Link>
-                    <Link
-                      href="/admin/reports"
-                      className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      처리하기
-                    </Link>
-                  </div>
+                  <Link
+                    href="/admin/reports"
+                    className="mt-4 inline-flex rounded-xl bg-rose-500 px-4 py-2 text-sm font-bold text-white"
+                  >
+                    상세 처리
+                  </Link>
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="rounded-[32px] bg-white p-8 shadow-xl shadow-violet-100">
+          <section className="rounded-[32px] bg-white p-6 shadow-xl shadow-violet-100 md:p-8">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-black text-violet-500">Inquiries</p>
@@ -712,27 +761,23 @@ export default async function AdminPage() {
               <MessageSquare className="h-8 w-8 text-violet-400" />
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-5 py-4">
-              <p className="text-sm font-black text-slate-600">
-                최근 문의 {inquiries.length}개
-              </p>
-              <div className="flex flex-wrap gap-2 text-xs font-black">
-                <span className="rounded-full bg-white px-3 py-2 text-slate-500">
-                  전체 {inquiries.length}
-                </span>
-                <span className="rounded-full bg-amber-50 px-3 py-2 text-amber-600">
-                  대기 {inquiries.filter((item) => item.status === "대기").length}
-                </span>
-                <span className="rounded-full bg-sky-50 px-3 py-2 text-sky-600">
-                  확인중 {inquiries.filter((item) => item.status === "확인중").length}
-                </span>
-                <span className="rounded-full bg-emerald-50 px-3 py-2 text-emerald-600">
-                  완료 {inquiries.filter((item) => item.status === "완료").length}
-                </span>
-              </div>
+            <div className="mt-6 flex flex-wrap gap-2 text-xs font-black">
+              <span className="rounded-full bg-slate-50 px-3 py-2 text-slate-500">
+                최근 {inquiries.length}
+              </span>
+              <span className="rounded-full bg-amber-50 px-3 py-2 text-amber-600">
+                대기 {inquiries.filter((item) => item.status === "대기").length}
+              </span>
+              <span className="rounded-full bg-sky-50 px-3 py-2 text-sky-600">
+                확인중{" "}
+                {inquiries.filter((item) => item.status === "확인중").length}
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-2 text-emerald-600">
+                완료 {inquiries.filter((item) => item.status === "완료").length}
+              </span>
             </div>
 
-            <div className="mt-5 max-h-[720px] space-y-4 overflow-y-auto pr-2">
+            <div className="mt-5 max-h-[720px] space-y-4 overflow-y-auto pr-1 md:pr-2">
               {inquiries.length === 0 && (
                 <div className="rounded-2xl bg-slate-50 p-6 text-center">
                   <p className="font-bold text-slate-500">
@@ -744,20 +789,18 @@ export default async function AdminPage() {
               {inquiries.map((item) => (
                 <div key={item.id} className="rounded-2xl bg-slate-50 p-5">
                   <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="font-black">{item.name}</p>
-                      <p className="mt-1 text-sm text-slate-500">
+                    <div className="min-w-0">
+                      <p className="truncate font-black">{item.name}</p>
+                      <p className="mt-1 truncate text-sm text-slate-500">
                         {item.category} · {item.email}
                       </p>
-                      {item.createdAt && (
-                        <p className="mt-1 text-xs font-semibold text-slate-400">
-                          접수일: {item.createdAt}
-                        </p>
-                      )}
+                      <p className="mt-1 text-xs font-semibold text-slate-400">
+                        접수일: {item.createdAt}
+                      </p>
                     </div>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${statusStyle(
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${statusStyle(
                         item.status
                       )}`}
                     >
@@ -782,107 +825,195 @@ export default async function AdminPage() {
           </section>
         </div>
 
-        <section className="mt-12 rounded-[32px] bg-white p-8 shadow-xl shadow-sky-100">
+        <section className="mt-12 rounded-[32px] bg-white p-6 shadow-xl shadow-sky-100 md:p-8">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="font-black text-sky-500">Users</p>
-              <h2 className="mt-2 text-3xl font-black">유저 관리</h2>
+              <p className="font-black text-sky-500">Recent App Users</p>
+              <h2 className="mt-2 text-3xl font-black">최근 앱 가입 유저</h2>
               <p className="mt-3 text-sm font-bold text-slate-500">
-                최근 가입 유저 {users.length}명 · 전체 {totalUserCount}명
+                앱 PostgreSQL 기준 최근 가입자
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin/users"
-                className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-600"
-              >
-                유저 페이지로 이동
-              </Link>
-              <Users className="h-8 w-8 text-sky-400" />
-            </div>
+            <Link
+              href="/admin/users"
+              className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-sky-600 md:px-5"
+            >
+              유저 관리
+            </Link>
           </div>
 
-          <div className="mt-8 overflow-hidden rounded-3xl border border-slate-100">
-            <div className="grid grid-cols-5 bg-slate-50 px-6 py-4 text-sm font-black text-slate-500">
-              <span>닉네임</span>
-              <span>이메일</span>
-              <span>가입방식</span>
-              <span>구독</span>
-              <span>상태</span>
-            </div>
-
-            {users.length === 0 && (
-              <div className="bg-white px-6 py-8 text-center">
-                <p className="font-bold text-slate-500">
-                  아직 가입한 유저가 없습니다.
-                </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {appDashboard.recentUsers.length === 0 ? (
+              <div className="rounded-3xl bg-slate-50 p-8 text-center font-bold text-slate-500 md:col-span-2">
+                최근 앱 유저 데이터를 불러오지 못했습니다.
               </div>
-            )}
+            ) : (
+              appDashboard.recentUsers.map((appUser: RecentAppUser) => (
+                <div
+                  key={appUser.id}
+                  className="flex items-center gap-4 rounded-3xl bg-slate-50 p-5"
+                >
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
+                    {appUser.avatar ? (
+                      <img
+                        src={appUser.avatar}
+                        alt={appUser.username || "유저"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Users className="h-6 w-6 text-slate-300" />
+                    )}
+                  </div>
 
-            {users.map((user) => (
-              <div
-                key={user.id}
-                className="grid grid-cols-5 items-center border-t border-slate-100 px-6 py-5 text-sm"
-              >
-                <span className="font-black">{user.nickname}</span>
-                <span className="truncate text-slate-500">{user.email}</span>
-                <span className="font-bold text-sky-500">{user.provider}</span>
-                <span className="font-bold text-violet-500">{user.plan}</span>
-                <span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-black">
+                      {appUser.username || appUser.name || "insai 유저"}
+                    </p>
+                    <p className="mt-1 truncate text-sm font-bold text-slate-400">
+                      {appUser.email || "이메일 없음"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      {appUser.countryCode || appUser.country || "UNKNOWN"} ·{" "}
+                      {formatKoreanDate(appUser.createdAt)}
+                    </p>
+                  </div>
+
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-black ${statusStyle(
-                      user.status
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${statusStyle(
+                      appUser.onboardingCompleted
+                        ? "온보딩 완료"
+                        : "대기"
                     )}`}
                   >
-                    {user.status}
+                    {appUser.onboardingCompleted ? "완료" : "미완료"}
                   </span>
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/admin/users"
-              className="inline-flex items-center gap-2 rounded-2xl bg-rose-500 px-5 py-3 font-bold text-white"
-            >
-              <Ban className="h-4 w-4" />
-              유저 정지 / 해제
-            </Link>
-            <Link
-              href="/admin/users"
-              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 font-bold text-white"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              유저 상세 관리
-            </Link>
-            <Link
-              href="/admin/users"
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 font-bold text-white"
-            >
-              <FileText className="h-4 w-4" />
-              유저 목록 보기
-            </Link>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
-        <section className="mt-12 rounded-[32px] bg-gradient-to-br from-sky-50 to-violet-50 p-8 shadow-xl shadow-violet-100">
+        <section className="mt-12 rounded-[32px] bg-white p-6 shadow-xl shadow-emerald-100 md:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-black text-emerald-500">Web Accounts</p>
+              <h2 className="mt-2 text-3xl font-black">최근 웹 연결 계정</h2>
+              <p className="mt-3 text-sm font-bold text-slate-500">
+                홈페이지 로그인 계정과 앱 연결 상태 확인
+              </p>
+            </div>
+            <Link
+              href="/admin/users"
+              className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-white"
+            >
+              전체 보기
+            </Link>
+          </div>
+
+          <div className="mt-8 overflow-x-auto rounded-3xl border border-slate-100">
+            <div className="min-w-[760px]">
+              <div className="grid grid-cols-5 bg-slate-50 px-6 py-4 text-sm font-black text-slate-500">
+                <span>닉네임</span>
+                <span>이메일</span>
+                <span>가입 방식</span>
+                <span>앱 연결</span>
+                <span>상태</span>
+              </div>
+
+              {webUsers.length === 0 && (
+                <div className="bg-white px-6 py-8 text-center">
+                  <p className="font-bold text-slate-500">
+                    아직 웹 연결 계정이 없습니다.
+                  </p>
+                </div>
+              )}
+
+              {webUsers.map((webUser) => (
+                <div
+                  key={webUser.id}
+                  className="grid grid-cols-5 items-center border-t border-slate-100 bg-white px-6 py-5 text-sm"
+                >
+                  <span className="truncate font-black">
+                    {webUser.nickname}
+                  </span>
+                  <span className="truncate text-slate-500">
+                    {webUser.email}
+                  </span>
+                  <span className="font-bold text-sky-500">
+                    {webUser.provider}
+                  </span>
+                  <span
+                    className={
+                      webUser.appUserId
+                        ? "font-bold text-emerald-600"
+                        : "font-bold text-amber-500"
+                    }
+                  >
+                    {webUser.appUserId ? "연결 완료" : "미연결"}
+                  </span>
+                  <span>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${statusStyle(
+                        webUser.status
+                      )}`}
+                    >
+                      {webUser.status}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {isOwner && (
+          <section className="mt-12 rounded-[32px] border border-amber-100 bg-amber-50/70 p-6 md:p-8">
+            <p className="font-black text-amber-600">Payment Status</p>
+            <h2 className="mt-2 text-3xl font-black">
+              결제·구독 데이터는 아직 미연결
+            </h2>
+            <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+              현재 Prisma 스키마에는 결제 영수증, 구독 플랜, 결제일,
+              만료일을 저장하는 모델이 없습니다. 따라서 매출과 활성 구독자
+              수치를 임의로 표시하지 않고 실제 결제 저장 구조를 만든 뒤
+              연결하도록 비워뒀습니다.
+            </p>
+          </section>
+        )}
+
+        <section className="mt-12 rounded-[32px] bg-gradient-to-br from-sky-50 to-violet-50 p-6 shadow-xl shadow-violet-100 md:p-8">
           <div>
             <p className="font-black text-violet-500">Judgement</p>
             <h2 className="mt-2 text-3xl font-black">운영 판결 상태</h2>
-            <p className="mt-4 max-w-2xl leading-8 text-slate-600">
-              신고나 문의를 검토한 뒤 처리 결과를 대기, 처리중, 완료, 기각으로
-              관리할 수 있습니다.
-            </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Clock, title: "대기", desc: "아직 검토 전" },
-              { icon: ShieldCheck, title: "처리중", desc: "운영팀 검토 중" },
-              { icon: CheckCircle2, title: "완료", desc: "조치 완료" },
-              { icon: XCircle, title: "기각", desc: "위반 아님" },
+              {
+                icon: Clock,
+                title: "대기",
+                desc: "아직 검토 전",
+                value: appStats.reports.pending,
+              },
+              {
+                icon: ShieldCheck,
+                title: "확인중",
+                desc: "운영팀 검토 중",
+                value: appStats.reports.reviewing,
+              },
+              {
+                icon: CheckCircle2,
+                title: "완료",
+                desc: "조치 완료",
+                value: appStats.reports.completed,
+              },
+              {
+                icon: XCircle,
+                title: "반려",
+                desc: "위반 아님",
+                value: appStats.reports.rejected,
+              },
             ].map((item) => {
               const Icon = item.icon;
 
@@ -891,7 +1022,12 @@ export default async function AdminPage() {
                   key={item.title}
                   className="rounded-3xl bg-white p-6 shadow-lg shadow-sky-100"
                 >
-                  <Icon className="h-7 w-7 text-violet-500" />
+                  <div className="flex items-center justify-between">
+                    <Icon className="h-7 w-7 text-violet-500" />
+                    <span className="text-2xl font-black">
+                      {item.value}
+                    </span>
+                  </div>
                   <h3 className="mt-4 text-xl font-black">{item.title}</h3>
                   <p className="mt-2 text-sm text-slate-500">{item.desc}</p>
                 </div>
