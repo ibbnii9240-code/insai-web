@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import SafeAvatar from "@/components/SafeAvatar";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -323,19 +323,12 @@ export default function AdminUsersPage() {
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-sky-100 to-violet-100">
-                        {user.avatar ? (
-                          <Image
-                            src={user.avatar}
-                            alt="profile"
-                            width={56}
-                            height={56}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <UserRound className="h-7 w-7 text-violet-500" />
-                        )}
-                      </div>
+                      <SafeAvatar
+                        src={user.avatar}
+                        alt={user.nickname || user.name || "프로필"}
+                        className="h-14 w-14 rounded-2xl"
+                        iconClassName="h-7 w-7 text-slate-400"
+                      />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -383,19 +376,12 @@ export default function AdminUsersPage() {
             ) : (
               <div>
                 <div className="flex items-start gap-5">
-                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-sky-100 to-violet-100">
-                    {selectedUser.avatar ? (
-                      <Image
-                        src={selectedUser.avatar}
-                        alt="profile"
-                        width={96}
-                        height={96}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <UserRound className="h-10 w-10 text-violet-500" />
-                    )}
-                  </div>
+                  <SafeAvatar
+                    src={selectedUser.avatar}
+                    alt={selectedUser.nickname || selectedUser.name || "프로필"}
+                    className="h-24 w-24 rounded-3xl"
+                    iconClassName="h-10 w-10 text-slate-400"
+                  />
 
                   <div className="min-w-0">
                     <p className="font-black text-sky-500">User Detail</p>

@@ -7,6 +7,7 @@ import Contact from "@/models/Contact";
 import Report from "@/models/Report";
 import User from "@/models/User";
 import AdminContactActions from "@/components/AdminContactActions";
+import SafeAvatar from "@/components/SafeAvatar";
 import {
   Activity,
   Ban,
@@ -854,17 +855,12 @@ export default async function AdminPage() {
                   key={appUser.id}
                   className="flex items-center gap-4 rounded-3xl bg-slate-50 p-5"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white">
-                    {appUser.avatar ? (
-                      <img
-                        src={appUser.avatar}
-                        alt={appUser.username || "유저"}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Users className="h-6 w-6 text-slate-300" />
-                    )}
-                  </div>
+                  <SafeAvatar
+                    src={appUser.avatar}
+                    alt={appUser.username || appUser.name || "유저"}
+                    className="h-14 w-14 rounded-2xl"
+                    iconClassName="h-7 w-7 text-slate-400"
+                  />
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-black">
