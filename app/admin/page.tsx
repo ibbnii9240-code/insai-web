@@ -10,7 +10,9 @@ import AdminContactActions from "@/components/AdminContactActions";
 import SafeAvatar from "@/components/SafeAvatar";
 import {
   Activity,
+  BadgeDollarSign,
   Ban,
+  BriefcaseBusiness,
   Blocks,
   CheckCircle2,
   Clock,
@@ -25,6 +27,7 @@ import {
   MessageCircle,
   MessageSquare,
   MessagesSquare,
+  ReceiptText,
   ShieldCheck,
   TrendingUp,
   UserCheck,
@@ -65,6 +68,24 @@ type DashboardStats = {
     completed: number;
     rejected: number;
     unresolved: number;
+  };
+  subscriptions: {
+    active: number;
+    bronze: number;
+    silver: number;
+    gold: number;
+    expiringSoon: number;
+    canceled: number;
+  };
+  revenue: {
+    today: number;
+    thisMonth: number;
+    previousMonth: number;
+    growthRate: number;
+    refundedThisMonth: number;
+    appStoreThisMonth: number;
+    playStoreThisMonth: number;
+    webThisMonth: number;
   };
   countries: Array<{
     countryCode: string;
@@ -116,6 +137,24 @@ const EMPTY_STATS: DashboardStats = {
     rejected: 0,
     unresolved: 0,
   },
+  subscriptions: {
+    active: 0,
+    bronze: 0,
+    silver: 0,
+    gold: 0,
+    expiringSoon: 0,
+    canceled: 0,
+  },
+  revenue: {
+    today: 0,
+    thisMonth: 0,
+    previousMonth: 0,
+    growthRate: 0,
+    refundedThisMonth: 0,
+    appStoreThisMonth: 0,
+    playStoreThisMonth: 0,
+    webThisMonth: 0,
+  },
   countries: [],
 };
 
@@ -148,6 +187,14 @@ function formatKoreanDate(value?: string | Date | null) {
   return date.toLocaleString("ko-KR", {
     timeZone: "Asia/Seoul",
   });
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("ko-KR", {
+    style: "currency",
+    currency: "KRW",
+    maximumFractionDigits: 0,
+  }).format(value || 0);
 }
 
 function statusStyle(status: string) {
@@ -246,6 +293,14 @@ async function getAppDashboardStats(): Promise<{
         reports: {
           ...EMPTY_STATS.reports,
           ...(result.stats?.reports || {}),
+        },
+        subscriptions: {
+          ...EMPTY_STATS.subscriptions,
+          ...(result.stats?.subscriptions || {}),
+        },
+        revenue: {
+          ...EMPTY_STATS.revenue,
+          ...(result.stats?.revenue || {}),
         },
         countries: Array.isArray(result.stats?.countries)
           ? result.stats.countries
@@ -547,6 +602,64 @@ export default async function AdminPage() {
             </div>
           </div>
         </div>
+
+
+        {isOwner && (
+          <section className="mt-10 rounded-[32px] bg-gradient-to-br from-emerald-50 via-white to-violet-50 p-6 shadow-xl shadow-emerald-100 md:p-8">
+            <div>
+              <p className="font-black text-emerald-500">Owner Management</p>
+              <h2 className="mt-2 text-3xl font-black">오너 전용 관리</h2>
+              <p className="mt-3 leading-7 text-slate-500">
+                직원 계정, 구독 현황과 실제 결제 데이터를 각각의 전용
+                페이지에서 관리합니다.
+              </p>
+            </div>
+
+            <div className="mt-7 grid gap-5 md:grid-cols-3">
+              <Link
+                href="/admin/staff"
+                className="rounded-3xl bg-white p-6 shadow-lg shadow-emerald-100 transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <BriefcaseBusiness className="h-8 w-8 text-emerald-500" />
+                <h3 className="mt-5 text-2xl font-black">직원 관리</h3>
+                <p className="mt-3 leading-7 text-slate-500">
+                  Owner와 Staff 계정, 상태와 최근 로그인을 확인합니다.
+                </p>
+                <span className="mt-5 inline-block font-black text-emerald-600">
+                  직원 관리 열기 →
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/subscriptions"
+                className="rounded-3xl bg-white p-6 shadow-lg shadow-violet-100 transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <Users className="h-8 w-8 text-violet-500" />
+                <h3 className="mt-5 text-2xl font-black">구독 관리</h3>
+                <p className="mt-3 leading-7 text-slate-500">
+                  활성 구독자와 Bronze, Silver, Gold 플랜을 확인합니다.
+                </p>
+                <span className="mt-5 inline-block font-black text-violet-600">
+                  구독 관리 열기 →
+                </span>
+              </Link>
+
+              <Link
+                href="/admin/revenue"
+                className="rounded-3xl bg-white p-6 shadow-lg shadow-amber-100 transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <BadgeDollarSign className="h-8 w-8 text-amber-500" />
+                <h3 className="mt-5 text-2xl font-black">매출 관리</h3>
+                <p className="mt-3 leading-7 text-slate-500">
+                  스토어별 매출, 환불액과 최근 결제 내역을 확인합니다.
+                </p>
+                <span className="mt-5 inline-block font-black text-amber-600">
+                  매출 관리 열기 →
+                </span>
+              </Link>
+            </div>
+          </section>
+        )}
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {overviewStats.map((item) => {
@@ -964,17 +1077,82 @@ export default async function AdminPage() {
         </section>
 
         {isOwner && (
-          <section className="mt-12 rounded-[32px] border border-amber-100 bg-amber-50/70 p-6 md:p-8">
-            <p className="font-black text-amber-600">Payment Status</p>
-            <h2 className="mt-2 text-3xl font-black">
-              결제·구독 데이터는 아직 미연결
-            </h2>
-            <p className="mt-4 max-w-3xl leading-8 text-slate-600">
-              현재 Prisma 스키마에는 결제 영수증, 구독 플랜, 결제일,
-              만료일을 저장하는 모델이 없습니다. 따라서 매출과 활성 구독자
-              수치를 임의로 표시하지 않고 실제 결제 저장 구조를 만든 뒤
-              연결하도록 비워뒀습니다.
-            </p>
+          <section className="mt-12 rounded-[32px] bg-white p-6 shadow-xl shadow-amber-100 md:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-black text-amber-500">
+                  Subscription & Revenue
+                </p>
+                <h2 className="mt-2 text-3xl font-black">
+                  구독·매출 현황
+                </h2>
+                <p className="mt-3 leading-7 text-slate-500">
+                  Prisma의 Subscription과 Payment 데이터를 기준으로
+                  계산합니다. 결제 데이터가 아직 없으면 0으로 표시됩니다.
+                </p>
+              </div>
+              <ReceiptText className="h-9 w-9 text-amber-500" />
+            </div>
+
+            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-3xl bg-emerald-50 p-6">
+                <p className="text-sm font-black text-emerald-600">
+                  활성 구독자
+                </p>
+                <p className="mt-2 text-3xl font-black">
+                  {appStats.subscriptions.active.toLocaleString("ko-KR")}명
+                </p>
+                <p className="mt-2 text-sm font-bold text-emerald-600/70">
+                  Bronze {appStats.subscriptions.bronze} · Silver{" "}
+                  {appStats.subscriptions.silver} · Gold{" "}
+                  {appStats.subscriptions.gold}
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-sky-50 p-6">
+                <p className="text-sm font-black text-sky-600">오늘 매출</p>
+                <p className="mt-2 text-3xl font-black">
+                  {formatMoney(appStats.revenue.today)}
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-violet-50 p-6">
+                <p className="text-sm font-black text-violet-600">
+                  이번 달 매출
+                </p>
+                <p className="mt-2 text-3xl font-black">
+                  {formatMoney(appStats.revenue.thisMonth)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-violet-500">
+                  전월 대비 {appStats.revenue.growthRate >= 0 ? "+" : ""}
+                  {appStats.revenue.growthRate}%
+                </p>
+              </div>
+
+              <div className="rounded-3xl bg-rose-50 p-6">
+                <p className="text-sm font-black text-rose-600">
+                  이번 달 환불
+                </p>
+                <p className="mt-2 text-3xl font-black">
+                  {formatMoney(appStats.revenue.refundedThisMonth)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                href="/admin/subscriptions"
+                className="rounded-2xl bg-violet-500 px-5 py-3 font-black text-white"
+              >
+                구독 전체 보기
+              </Link>
+              <Link
+                href="/admin/revenue"
+                className="rounded-2xl bg-amber-500 px-5 py-3 font-black text-white"
+              >
+                매출 전체 보기
+              </Link>
+            </div>
           </section>
         )}
 
