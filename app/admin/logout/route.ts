@@ -1,11 +1,10 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
+import { clearAdminSession } from "@/lib/adminAuth";
 
-export async function GET() {
-  const cookieStore = await cookies();
-
-  cookieStore.delete("insai_admin_auth");
-  cookieStore.delete("insai_admin_role");
-
-  redirect("/admin/login");
+export async function GET(request: Request) {
+  await clearAdminSession();
+  return NextResponse.redirect(
+    new URL("/admin/login", request.url),
+    303
+  );
 }

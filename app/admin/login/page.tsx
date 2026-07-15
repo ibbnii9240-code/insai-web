@@ -1,69 +1,63 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { Lock, Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import {
+  ArrowRight,
+  Lock,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 
-async function loginAction(formData: FormData) {
-  "use server";
+export default function AdminLoginPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const email = formData.get("email");
-  const password = formData.get("password");
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-  let role: "owner" | "staff" | null = null;
+    try {
+      setIsSubmitting(true);
+      setMessage("");
 
-  if (
-    email === process.env.OWNER_EMAIL &&
-    password === process.env.OWNER_PASSWORD
-  ) {
-    role = "owner";
-  }
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-  if (
-    email === process.env.STAFF_EMAIL &&
-    password === process.env.STAFF_PASSWORD
-  ) {
-    role = "staff";
-  }
+      const result = await response.json();
 
-  if (role) {
-    const cookieStore = await cookies();
+      if (!response.ok || !result.ok) {
+        setMessage(
+          result.message || "관리자 로그인에 실패했습니다."
+        );
+        return;
+      }
 
-    cookieStore.set("insai_admin_auth", "true", {
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
-
-    cookieStore.set("insai_admin_role", role, {
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
-
-    redirect("/admin");
-  }
-
-  redirect("/admin/login?error=1");
-}
-
-export default async function AdminLoginPage() {
-  const cookieStore = await cookies();
-  const isAdmin = cookieStore.get("insai_admin_auth")?.value;
-
-  if (isAdmin === "true") {
-    redirect("/admin");
+      router.replace("/admin");
+      router.refresh();
+    } catch {
+      setMessage("관리자 로그인 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F8FBFF] px-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#F8FBFF] px-5 py-10">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute left-[-100px] top-20 h-[300px] w-[300px] rounded-full bg-sky-200/40 blur-3xl" />
-        <div className="absolute right-[-100px] bottom-20 h-[350px] w-[350px] rounded-full bg-violet-200/40 blur-3xl" />
+        <div className="absolute bottom-20 right-[-100px] h-[350px] w-[350px] rounded-full bg-violet-200/40 blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-[36px] bg-white p-10 shadow-2xl shadow-sky-100">
+        <div className="rounded-[36px] bg-white p-7 shadow-2xl shadow-sky-100 sm:p-10">
           <div className="flex flex-col items-center">
             <Image
               src="/insai-logo.png"
@@ -73,43 +67,27 @@ export default async function AdminLoginPage() {
               className="rounded-2xl"
               priority
             />
-
-            <h1 className="mt-5 text-4xl font-black">Admin Login</h1>
-
-            <p className="mt-3 text-center text-slate-500">
-              오너 또는 직원 관리자 계정으로 로그인하세요.
+            <h1 className="mt-5 text-4xl font-black">
+              Admin Login
+            </h1>
+            <p className="mt-3 text-center leading-7 text-slate-500">
+              환경변수 초기 계정 또는 오너가 생성한 직원 계정으로 로그인하세요.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl bg-emerald-50 p-4">
-              <p className="font-black text-emerald-600">Owner</p>
-              <p className="mt-2 text-xs leading-5 text-emerald-700">
-                매출, 수익, 구독, 운영 관리 전체 접근
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-violet-50 p-4">
-              <p className="font-black text-violet-600">Staff</p>
-              <p className="mt-2 text-xs leading-5 text-violet-700">
-                신고, 문의, 유저 판결 중심 접근
-              </p>
-            </div>
-          </div>
-
-          <form action={loginAction} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
               <label className="mb-2 block text-sm font-black text-slate-700">
-                관리자 이메일
+                관리자 아이디
               </label>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-4">
-                <Mail className="h-5 w-5 text-slate-400" />
-
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-4 focus-within:border-violet-400">
+                <UserRound className="h-5 w-5 text-slate-400" />
                 <input
-                  name="email"
-                  type="email"
-                  placeholder="owner@insai.app 또는 staff@insai.app"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  type="text"
+                  autoComplete="username"
+                  placeholder="관리자 아이디 또는 이메일"
                   className="w-full outline-none"
                   required
                 />
@@ -120,13 +98,13 @@ export default async function AdminLoginPage() {
               <label className="mb-2 block text-sm font-black text-slate-700">
                 비밀번호
               </label>
-
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-4 focus-within:border-violet-400">
                 <Lock className="h-5 w-5 text-slate-400" />
-
                 <input
-                  name="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                   type="password"
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   className="w-full outline-none"
                   required
@@ -134,11 +112,18 @@ export default async function AdminLoginPage() {
               </div>
             </div>
 
+            {message && (
+              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">
+                {message}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 py-4 font-bold text-white shadow-lg shadow-violet-200 transition hover:scale-[1.02]"
+              disabled={isSubmitting}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-400 to-violet-500 py-4 font-bold text-white shadow-lg shadow-violet-200 disabled:opacity-60"
             >
-              로그인
+              {isSubmitting ? "로그인 중..." : "로그인"}
               <ArrowRight className="h-5 w-5" />
             </button>
           </form>
@@ -146,14 +131,10 @@ export default async function AdminLoginPage() {
           <div className="mt-8 rounded-2xl bg-slate-50 p-5">
             <div className="flex items-center gap-3">
               <ShieldCheck className="h-5 w-5 text-violet-500" />
-
               <span className="font-black text-slate-800">보안 안내</span>
             </div>
-
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              오너와 직원 권한은 분리됩니다.
-              <br />
-              직원 계정은 매출/수익 정보를 볼 수 없습니다.
+              새 직원 비밀번호는 암호화되어 저장되며, 일반 웹 유저 계정과 분리됩니다.
             </p>
           </div>
 
